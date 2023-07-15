@@ -32,6 +32,10 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.images.server.repository }}:{{ .Values.images.server.tag | default .Chart.AppVersion }}"
+          command:
+            {{- toYaml .Values.images.server.command | nindent 12 }}
+          args:
+            {{- toYaml .Values.images.server.args | nindent 12 }}
           imagePullPolicy: {{ .Values.images.server.pullPolicy }}
           env:
             - name: UDASH_DB_URI
