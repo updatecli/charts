@@ -48,12 +48,25 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - name: "config-volume"
+            - name: "configjson"
+              mountPath: "/usr/share/nginx/html/config.json"
+              subPath: config.json
+            - name: "configjs"
               mountPath: "/usr/share/nginx/html/config.js"
+              subPath: config.js
       volumes:
-        - name: config-volume
+        - name: configjson
           configMap:
             name: {{ include "udash.configMapName" . }}-front
+            items:
+              - key: config.json
+                path: config.json
+        - name: configjs
+          configMap:
+            name: {{ include "udash.configMapName" . }}-front
+            items:
+              - key: config.js
+                path: config.js
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
