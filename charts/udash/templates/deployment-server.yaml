@@ -37,27 +37,6 @@ spec:
           args:
             {{- toYaml .Values.images.server.args | nindent 12 }}
           imagePullPolicy: {{ .Values.images.server.pullPolicy }}
-          env:
-            - name: UDASH_DB_URI
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "udash.secretName" . }}-database
-                  key: uri
-            - name: UDASH_AUTH_MODE
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "udash.secretName" . }}-auth
-                  key: mode
-            - name: UDASH_AUTH_ISSUER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "udash.secretName" . }}-auth
-                  key: issuer
-            - name: UDASH_AUTH_AUDIENCE
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "udash.secretName" . }}-auth
-                  key: audience
           ports:
             - name: http
               containerPort: 8080
@@ -72,6 +51,14 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: "config"
+              mountPath: "/etc/udash/"
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "udash.configMapName" . }}-server
+
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
