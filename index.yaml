@@ -3,6 +3,17 @@ entries:
   udash:
   - apiVersion: v2
     appVersion: 0.1.0
+    created: "2023-07-16T20:06:02.08534731Z"
+    description: An Updatecli platform
+    digest: 990873642b9138b9e35c7e95a0d994e6cc0df2b1a80c5cbe1f8382a26a4715b5
+    icon: https://www.updatecli.io/images/updatecli_transparent.png
+    name: udash
+    type: application
+    urls:
+    - https://github.com/updatecli/charts/releases/download/udash-0.1.3/udash-0.1.3.tgz
+    version: 0.1.3
+  - apiVersion: v2
+    appVersion: 0.1.0
     created: "2023-07-15T11:37:29.666769586Z"
     description: An Updatecli platform
     digest: 20f0adbf3d45370942f560e58ba8edec078063d2fb6978547464512c5031829c
@@ -34,4 +45,4 @@ entries:
     urls:
     - https://github.com/updatecli/charts/releases/download/udash-0.1.0/udash-0.1.0.tgz
     version: 0.1.0
-generated: "2023-07-15T11:37:29.666780091Z"
+generated: "2023-07-16T20:06:02.08536061Z"
