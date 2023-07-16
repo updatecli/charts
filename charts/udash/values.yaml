@@ -9,7 +9,7 @@ images:
     repository: ghcr.io/updatecli/udash
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: "v0.2.0"
+    tag: "v0.3.0"
     command:
       - "udash"
     args:
@@ -50,7 +50,7 @@ secrets:
     # Annotations to add to the database secret
     annotations: {}
     stringdata:
-      uri: postgres://postgres.example:5432/udash?sslmode=disable
+      uri: postgres://postgres:5432/udash?sslmode=disable
   auth:
     # Annotations to add to the auth secret
     annotations: {}
