@@ -15,12 +15,6 @@ jobs:
         uses: "actions/checkout@v3"
       - name: "Setup updatecli"
         uses: "updatecli/updatecli-action@v2.33.0"
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version-file: 'go.mod'
-          check-latest: true
-        id: go
       - name: "Run updatecli in dryrun"
         run: "updatecli diff --config ./updatecli/updatecli.d --experimental"
         env:
