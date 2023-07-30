@@ -1,0 +1,31 @@
+name: Default Autodiscovery
+actions:
+    default:
+        kind: github/pullrequest
+        spec:
+            automerge: false
+            labels:
+                - chore
+                - dependencies
+        scmid: default
+scms:
+    default:
+        kind: github
+        spec:
+            branch: main
+            email: me@olblak.com
+            owner: updatecli
+            repository: charts
+            token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
+            user: updatecli
+            username: '{{ requiredEnv "UPDATECLI_GITHUB_ACTOR" }}'
+
+autodiscovery:
+  groupby: all 
+  scmid: default
+  actionid: default
+  crawlers:
+    helm:
+      versionfilter:
+        kind: semver
+
