@@ -14,7 +14,7 @@ jobs:
       - name: "Checkout"
         uses: "actions/checkout@v3"
       - name: "Setup updatecli"
-        uses: "updatecli/updatecli-action@v2.33.0"
+        uses: "updatecli/updatecli-action@v2"
       - name: "Run updatecli in dryrun"
         run: "updatecli diff --config ./updatecli/updatecli.d --experimental"
         env:
