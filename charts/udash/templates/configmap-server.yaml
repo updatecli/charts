@@ -9,6 +9,14 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 data:
+
+{{- if .Values.readonly }}
+  config.yaml: |
+    server:
+      dryrun: true
+    database:
+      uri: "{{ .Values.secrets.database.stringdata.uri }}"
+{{- else }}
   config.yaml: |
     server:
       auth:
@@ -17,4 +25,5 @@ data:
         audience: "{{ .Values.secrets.auth.stringdata.audience }}"
     database:
       uri: "{{ .Values.secrets.database.stringdata.uri }}"
+{{- end }}
 

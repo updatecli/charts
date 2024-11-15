@@ -30,6 +30,13 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}-front
+          env:
+            - name: VUE_APP_AUTH_ENABLED
+        {{- if .Values.readonly }}
+              value: "false"
+        {{- else }}
+              value: "true"
+        {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.images.front.repository }}:{{ .Values.images.front.tag | default .Chart.AppVersion }}"
@@ -48,6 +55,7 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- if not .Values.readonly }}
           volumeMounts:
             - name: "configjson"
               mountPath: "/usr/share/nginx/html/config.json"
@@ -55,6 +63,8 @@ spec:
             - name: "configjs"
               mountPath: "/usr/share/nginx/html/config.js"
               subPath: config.js
+          {{- end }}
+      {{- if not .Values.readonly}}
       volumes:
         - name: configjson
           configMap:
@@ -68,6 +78,7 @@ spec:
             items:
               - key: config.js
                 path: config.js
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
