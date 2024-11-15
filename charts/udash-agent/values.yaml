@@ -1,0 +1,168 @@
+# Default values for udash agent.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+#
+images:
+  agent:
+    repository: ghcr.io/updatecli/updatecli
+    pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: v0.86.1
+    command:
+      - "updatecli"
+    ## The exp
+    args:
+      - "compose"
+      - "diff"
+      - "--file"
+      - "/etc/updatecli/updatecli-compose.yaml"
+      - "--experimental"
+  agentrelay:
+    repository: ghcr.io/updatecli/udash
+    pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: v0.5.0
+    command:
+      - "udash"
+    args:
+      - "server"
+      - "start"
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+# The name of the configMap used to store front config.js file.
+# If not set, a name is generated using the fullname template
+configMap:
+  name: ""
+  # Annotations to add to the configmap
+  annotations: {}
+# The name of the secret used to store agent enviroment variables.
+# If not set, a name is generated using the fullname template
+secrets:
+  name: ""
+  ## agent defines the global agents configuration
+  agent:
+    # Annotations to add to the database secret
+    annotations: {}
+    # environments is a map of environment variables to add to the agent container.
+    # where they key is the environment variable name and the value is the environment variable value.
+    environments: {}
+    #  "GITHUB_ACTOR": "GitHub username"
+    #  "GITHUB_TOKEN": "GitHub PAT"
+  # database defines the database settings used by the agentrelay to post Updatecli reports to a Postgresql database.
+  # The agentrelay is a Udash service running without authentication but only available within the cluster.
+  database:
+    # Annotations to add to the database secret
+    annotations: {}
+    stringdata:
+      # uri must be a valide postgresql uri to connect to the database.
+      uri: postgres://postgres:5432/udash?sslmode=disable
+podAnnotations: {}
+podSecurityContext: {}
+# fsGroup: 2000
+securityContext: {}
+# capabilities:
+#   drop:
+#   - ALL
+# readOnlyRootFilesystem: true
+# runAsNonRoot: true
+# runAsUser: 1000
+resources: {}
+# We usually recommend not to specify default resources and to leave this as a conscious
+# choice for the user. This also increases chances charts run on environments with little
+# resources, such as Minikube. If you do want to specify resources, uncomment the following
+# lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+# limits:
+#   cpu: 100m
+#   memory: 128Mi
+# requests:
+#   cpu: 100m
+#   memory: 128Mi
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+nodeSelector: {}
+tolerations: []
+affinity: {}
+service:
+  type: ClusterIP
+  port: 80
+
+# defaultSchedule specify the default schedule for all agents.
+# This schedule is used when no schedule is defined in the agent configuration.
+# The schedule is a cron expression.
+defaultSchedule: "0 * * * *"
+
+# defaultComposeFile is the default Updatecli compose configuration file to run.
+# defaultComposeFile is mounted in /etc/updatecli/updatecli-compose.yaml
+# More information on https://www.updatecli.io/docs/core/compose/
+defaultComposeFile: |
+  policies:
+    - name: Update Updatecli policies
+      policy: ghcr.io/updatecli/policies/updatecli/autodiscovery/all:0.7.0
+      values:
+        - /etc/updatecli/scm.yaml
+
+# defaultUdashConfig is the default configuration used by Updatecli to publish reports to Udash.
+defaultUdashConfig: |
+  {
+    "Auths": {
+      "agentrelay": {
+        "Api":"http://agentrelay/api",
+        "URL":"http://localhost:3030"
+      }
+    },
+    "Default":"agentrelay"
+  }
+
+## agents is a list of agents to run periodically via a cronjob.
+## Each agent can have its own schedule, Updatecli compose file and values files.
+## All Updatecli configuration are mounted in the /etc/updatecli/ directory.
+#agents:
+#  "default":
+#    # schedule is a cron expression to run the agent.
+#    # The default schedule is set by defaultSchedule
+#    schedule: "*/30 * * * *"
+#    # valuesFiles is a list of values files that can be used from the Updatecli compose file located in /etc/updatecli/values.d/<id>
+#    # valuesFiles are mounted in /etc/updatecli/values.d
+#    valuesFiles:
+#      scm.yaml: |
+#        scm:
+#          enabled: true
+#          user: updatecli
+#          owner: updatecli
+#          repository: updatecli
+#          branch: main
+#
+#    # composeFile is the Updatecli compose configuration file to run.
+#    # composeFile is mounted in /etc/updatecli/updatecli-compose.yaml
+#    # More information on https://www.updatecli.io/docs/core/compose/
+#    # Default value is set by defaultComposeFile
+#    composeFile: |
+#      policies:
+#        - name: Update Updatecli policies
+#          policy: ghcr.io/updatecli/policies/updatecli/autodiscovery/all:0.5.0
+#          values:
+#            - /etc/updatecli/scm.yaml
+#    defaultUdashConfig: |
+#      {
+#        "Auths": {
+#          "agentrelay": {
+#            "Api":"http://agentrelay/api",
+#            "URL":"http://localhost:3030"
+#          }
+#        },
+#        "Default":"agentrelay"
+#      }
+

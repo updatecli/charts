@@ -1,0 +1,23 @@
+{{ range $id, $agent := .Values.agents }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: '{{ include "udash.configMapName" $ }}-agent-{{ $id }}'
+  labels:
+    {{- include "udash.labels" $ | nindent 4 }}
+  {{- with $.Values.configMap.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  udash.json: |
+    {{- $agent.udashConfig | default $.Values.defaultUdashConfig | nindent 4 }}
+  updatecli-compose.yaml: |
+    {{- $agent.composeFile | default $.Values.defaultComposeFile | nindent 4 }}
+  {{- range $name, $content := $agent.valuesFiles }}
+  {{ $name }}: |
+    {{- $content | nindent 4 }}
+  {{- end }}
+{{- end }}
+

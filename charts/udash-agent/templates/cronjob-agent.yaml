@@ -1,0 +1,72 @@
+{{ range $id, $agent := .Values.agents }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "udash.fullname" $ }}-agent-{{ $id }}
+  labels:
+    {{- include "udash.labels" $ | nindent 4 }}
+spec:
+  schedule: '{{ $agent.schedule | default $.Values.defaultSchedule }}'
+  backofflimit: 4
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          {{- with $.Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          serviceAccountName: {{ include "udash.serviceAccountName" $ }}
+          securityContext:
+            {{- toYaml $.Values.podSecurityContext | nindent 12 }}
+          restartPolicy: "OnFailure"
+          containers:
+            - name: '{{ $.Chart.Name }}-agent-{{ $id }}'
+              securityContext:
+                {{- toYaml $.Values.securityContext | nindent 16 }}
+              image: "{{ $.Values.images.agent.repository }}:{{ $.Values.images.agent.tag | default $.Chart.AppVersion }}"
+              command:
+                {{- toYaml $.Values.images.agent.command | nindent 16 }}
+              args:
+                {{- toYaml $.Values.images.agent.args | nindent 16 }}
+              env:
+              {{- range $env, $value := $.Values.secrets.agent.environments }}
+                - name: "{{ $env }}"
+                  valueFrom:
+                    secretKeyRef:
+                      name: '{{ include "udash.secretName" $ }}'
+                      key: "{{ $env }}"
+              {{- end }}
+              imagePullPolicy: {{ $.Values.images.agent.pullPolicy }}
+              resources:
+                {{- toYaml $.Values.resources | nindent 16 }}
+              volumeMounts:
+                - name: "config"
+                  mountPath: "/home/updatecli/.config/updatecli/udash.json"
+                  subPath: "udash.json"
+                  readonly: true
+                - name: "config"
+                  mountPath: "/etc/updatecli/"
+                  readonly: true
+
+          volumes:
+            - name: config
+              configMap:
+                name: '{{ include "udash.configMapName" $ }}-agent-{{ $id }}'
+          {{- with $.Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+          {{- with $.Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+          {{- with $.Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+{{- end }}

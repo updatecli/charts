@@ -1,0 +1,7 @@
+apiVersion: v2
+appVersion: 0.86.1
+description: Udash Agent, is the Updatecli DASHboard agent running Updatecli to check your repositories updates.
+icon: https://www.updatecli.io/images/updatecli_transparent.png
+name: udash-agent
+type: application
+version: 0.1.0
