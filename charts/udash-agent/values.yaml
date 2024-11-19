@@ -110,7 +110,7 @@ defaultSchedule: "0 * * * *"
 defaultComposeFile: |
   policies:
     - name: Update Updatecli policies
-      policy: ghcr.io/updatecli/policies/updatecli/autodiscovery/all:0.7.0
+      policy: ghcr.io/updatecli/policies/autodiscovery/all
       values:
         - /etc/updatecli/scm.yaml
 
