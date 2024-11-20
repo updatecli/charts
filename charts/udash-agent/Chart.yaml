@@ -4,4 +4,4 @@ description: Udash Agent, is the Updatecli DASHboard agent running Updatecli to 
 icon: https://www.updatecli.io/images/updatecli_transparent.png
 name: udash-agent
 type: application
-version: 0.1.1
+version: 0.2.0
