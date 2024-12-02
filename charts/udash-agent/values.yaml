@@ -7,7 +7,7 @@ images:
     repository: ghcr.io/updatecli/updatecli
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: v0.86.1@sha256:0beb1f2c883fb24129348c1b87fa7eefdaa63223c80fab52585c48330cceb3ae
+    tag: v0.88.0@sha256:2c8f869292b808614f7b81eb3dc2d0a3940d469ff7866402d15555645e6e17d7
     command:
       - "updatecli"
     ## The exp
@@ -21,7 +21,7 @@ images:
     repository: ghcr.io/updatecli/udash
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: v0.6.0@sha256:c2fdaf8d52a396e5b98d8e26bc4d6a157405d5b71b3ac0dcfb77831666e1f5c5
+    tag: v0.7.0@sha256:55a92d0eb832fa8d388f01a9a6d43373ff01c0a924e21abcbf58ecfcfb183472
     command:
       - "udash"
     args:
