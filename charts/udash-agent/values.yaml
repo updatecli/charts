@@ -7,7 +7,7 @@ images:
     repository: ghcr.io/updatecli/updatecli
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: v0.95.1@sha256:f0f799ce2e34e162aa535fe276019433f701c5e8152f6730497c4b252b62864b
+    tag: v0.96.0@sha256:2b01f1ef249de0375a4d4bfa88d9020679fd200a37d7dd78869bcd0d4837239c
     command:
       - "updatecli"
     ## The exp
