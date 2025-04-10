@@ -77,3 +77,20 @@ Create the name of the secrets use by udash agents
 {{- define "udash.secretName" -}}
 {{- default (include "udash.fullname" .) .Values.secrets.name }}
 {{- end }}
+
+{{/*
+Get the first defined hostname
+*/}}
+{{- define "udash.host" -}}
+  {{- if and .Values.ingress .Values.ingress.hosts -}}
+    {{- $first := (index .Values.ingress.hosts 0) -}}
+    {{- if $first.host -}}
+      {{- $first.host -}}
+    {{- else -}}
+      {{- "" -}}
+    {{- end -}}
+  {{- else -}}
+    {{- "" -}}
+  {{- end -}}
+{{- end -}}
+

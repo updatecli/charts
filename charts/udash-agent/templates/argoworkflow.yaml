@@ -1,0 +1,128 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: run-updatecli-diff
+spec:
+  entrypoint: main
+  arguments:
+    parameters:
+      - name: repo-url
+        description: GitHub repo to clone
+      - name: repo-branch
+        description: GitHub repo branch to clone
+        default: main
+      - name: updatecli-compose-file
+        description: the updatecli compose file
+        default: updatecli-compose.yaml
+  templates:
+    - name: main
+      volumes:
+        - name: workspace
+          emptyDir: {}
+      inputs:
+        parameters:
+          - name: repo-url
+          - name: repo-branch
+          - name: updatecli-compose-file
+      containerSet:
+        volumeMounts:
+          - mountPath: /workspace
+            name: workspace
+        containers:
+          - name: git-clone
+            image: alpine/git
+            command: [sh, -c]
+            args:
+              - |
+                git clone \
+                  --branch {{ "{{" }} inputs.parameters.repo-branch {{ "}}"}} \
+                  {{ "{{" }}inputs.parameters.repo-url{{ "}}" }} \
+                  /workspace
+
+          - name: updatecli
+            image: updatecli/updatecli:latest
+            dependencies:
+              - git-clone
+            command: [sh, -c]
+            env:
+            # {{- range $env, $value := $.Values.secrets.agent.environments }}
+              - name: "{{ $env }}"
+                valueFrom:
+                  secretKeyRef:
+                    name: '{{ include "udash.secretName" $ }}'
+                    key: "{{ $env }}"
+            # {{- end }}
+            args:
+              - |
+                cd /workspace
+                updatecli udash login --experimental --api-url http://agentrelay {{ default "agentrelay" (include "udash.host" . )}};
+                updatecli compose diff --experimental --file /workspace/{{ "{{" }} inputs.parameters.updatecli-compose-file {{ "}}" }};
+                updatecli udash logout --experimental {{ default "agentrelay " (include "udash.host" .)}};
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: updatecli-workflow-sa
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: updatecli-workflow-role
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "persistentvolumeclaims"]
+    verbs: ["create", "get", "watch", "list", "delete"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflows"]
+    verbs: ["create", "get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflowtaskresults","workflows"]
+    verbs: ["create", "get", "list", "watch", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: updatecli-workflow-binding
+subjects:
+  - kind: ServiceAccount
+    name: updatecli-workflow-sa
+    namespace: udash
+roleRef:
+  kind: Role
+  name: updatecli-workflow-role
+  apiGroup: rbac.authorization.k8s.io
+
+#{{ range $workflow := .Values.workflows }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: cron-run-updatecli-diff
+spec:
+  schedule: '{{ $workflow.schedule | default $.Values.defaultSchedule }}'
+  timezone: "UTC"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  startingDeadlineSeconds: 0
+  workflowSpec:
+    workflowTemplateRef:
+      name: run-updatecli-diff
+    arguments:
+      parameters:
+        - name: repo-url
+          value: {{ $workflow.url }}
+        - name: repo-branch
+          value: {{ $workflow.branch }}
+        - name: updatecli-compose-file
+          value: {{ $workflow.composefile }}
+#{{ end }}
