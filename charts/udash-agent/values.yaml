@@ -165,3 +165,20 @@ defaultUdashConfig: |
 #        },
 #        "Default":"agentrelay"
 #      }
+#
+
+# workflows is a list of Updatecli compose files to run periodically via a cronjob.
+# it accepts a git repository url, a branch and a compose file.
+# For each scm, an argo workflow is created to run the Updatecli compose file.
+# workflows:
+#   - url: "https://github.com/updatecli/udash.git"
+#     branch: "main"
+#     composefile: "updatecli-compose.yaml"
+#   - url: "https://github.com/updatecli/releasepost.git"
+#     branch: "main"
+#     composefile: "updatecli-compose.yaml"
+
+#ingress:
+#  hosts:
+#    - host: testudash
+#  
