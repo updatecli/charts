@@ -52,10 +52,12 @@ spec:
                     name: '{{ include "udash.secretName" $ }}'
                     key: "{{ $env }}"
             # {{- end }}
+            resources:
+              {{- toYaml $.Values.resources | nindent 14 }}
             args:
               - |
                 cd /workspace
-                updatecli udash login --experimental --api-url http://agentrelay {{ default "agentrelay" (include "udash.host" . )}};
+                updatecli udash login --experimental --api-url http://agentrelay/api {{ default "agentrelay" (include "udash.host" . )}};
                 updatecli compose diff --experimental --file /workspace/{{ "{{" }} inputs.parameters.updatecli-compose-file {{ "}}" }};
                 updatecli udash logout --experimental {{ default "agentrelay " (include "udash.host" .)}};
 ---
@@ -64,7 +66,6 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: updatecli-workflow-sa
-
 ---
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -75,9 +76,6 @@ rules:
   - apiGroups: [""]
     resources: ["pods", "pods/log", "persistentvolumeclaims"]
     verbs: ["create", "get", "watch", "list", "delete"]
-  - apiGroups: ["argoproj.io"]
-    resources: ["workflows"]
-    verbs: ["create", "get", "list", "watch"]
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get"]
@@ -85,8 +83,8 @@ rules:
     resources: ["secrets"]
     verbs: ["get"]
   - apiGroups: ["argoproj.io"]
-    resources: ["workflowtaskresults","workflows"]
-    verbs: ["create", "get", "list", "watch", "patch"]
+    resources: ["workflowtaskresults", "workflows"]
+    verbs: ["create", "get", "list", "watch", "patch", "update"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -102,18 +100,19 @@ roleRef:
   name: updatecli-workflow-role
   apiGroup: rbac.authorization.k8s.io
 
-#{{ range $workflow := .Values.workflows }}
+#{{ range $id, $workflow := .Values.workflows }}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: CronWorkflow
 metadata:
-  name: cron-run-updatecli-diff
+  name: cron-run-updatecli-diff-{{ $id }}
 spec:
   schedule: '{{ $workflow.schedule | default $.Values.defaultSchedule }}'
   timezone: "UTC"
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
   startingDeadlineSeconds: 0
+  concurrencyPolicy: Forbid
   workflowSpec:
     workflowTemplateRef:
       name: run-updatecli-diff
