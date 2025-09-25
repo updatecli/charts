@@ -18,7 +18,7 @@ images:
     repository: ghcr.io/updatecli/udash-front
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: v0.10.1@sha256:db48d39a0c06c79e84e0ed19b0c592a3940d8932e1bdff0939a31fe417928a48
+    tag: v0.11.0@sha256:906b299349d8a28432228e0aff6b0c3796cec9300a51e5e5161bf8e5e56e07cb
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
