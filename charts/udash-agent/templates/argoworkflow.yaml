@@ -106,7 +106,7 @@ kind: CronWorkflow
 metadata:
   name: cron-run-updatecli-diff-{{ $id }}
 spec:
-  schedule: '{{ $workflow.schedule | default $.Values.defaultSchedule }}'
+  schedule: "{{ $workflow.schedule | default $.Values.defaultSchedule }}"
   timezone: "UTC"
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
