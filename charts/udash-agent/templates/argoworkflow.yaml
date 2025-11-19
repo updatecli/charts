@@ -52,8 +52,9 @@ spec:
                   secretKeyRef:
                     name: '{{ include "udash.secretName" $ }}'
                     key: "{{ $env }}"
-            # {{- end }}
-            resources: {{ - toYaml $.Values.resources | nindent 14 }}
+              # {{- end }}
+            resources:
+              {{ - toYaml $.Values.resources | nindent 14 }}
             args:
               - |
                 cd /workspace
@@ -117,9 +118,9 @@ spec:
     arguments:
       parameters:
         - name: repo-url
-          value: {{$workflow.url}}
+          value: '{{ $workflow.url }}'
         - name: repo-branch
-          value: {{$workflow.branch}}
+          value: '{{ $workflow.branch }}'
         - name: updatecli-compose-file
-          value: {{$workflow.composefile}}
+          value: '{{ $workflow.composefile }}'
 #{{ end }}
