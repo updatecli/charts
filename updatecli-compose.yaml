@@ -3,7 +3,14 @@ policies:
     policy: ghcr.io/updatecli/policies/updatecli/autodiscovery:0.7.0@sha256:6890c4b4093a80063f518101881098fab8211c986481641faaf797a9ad5a31c3
     values:
       - updatecli/values.d/scm.yaml
-  - name: Update Helm charts
+
+  - name: Update Helm Charts
     policy: ghcr.io/updatecli/policies/autodiscovery/helm:0.8.0@sha256:2c14bf324ee0a548ec627b607c118fb27c74b72c4a330fc4e1bc35147593553f
     values:
       - updatecli/values.d/scm.yaml
+
+  - name: Update GitHub Actions
+    policy: ghcr.io/updatecli/policies/autodiscovery/githubaction:0.3.0@sha256:3b5425da2a2a2b89bb69463f1294704c33730358c66140efb93cab14b2868b06
+    values:
+      - updatecli/values.d/scm.yaml
+      - updatecli/values.d/githubaction.yaml
