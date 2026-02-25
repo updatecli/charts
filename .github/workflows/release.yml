@@ -1,11 +1,9 @@
 name: Release Charts
-
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-
 jobs:
   release:
     # depending on default permission settings for your org (contents being read-only or read-write for workloads), you will have to add permissions
@@ -15,18 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-
       - name: Configure Git
         run: |
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
       - name: Install Helm
         uses: azure/setup-helm@v3
-
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.7.0
         with:
