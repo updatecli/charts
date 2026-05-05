@@ -1,0 +1,67 @@
+name: Update Udash docker image
+pipelineid: udash/version
+
+labels:
+  release: udash
+  monitor: active
+
+sources:
+  udash:
+    name: Get latest Udash version
+    kind: githubrelease
+    spec:
+      owner: updatecli
+      repository: udash
+
+  digest:
+    name: Get Udash docker image tag
+    kind: dockerdigest
+    dependson:
+      - udash
+    spec:
+      image: ghcr.io/updatecli/udash
+      tag: '{{ source "udash" }}'
+
+targets:
+  udash:
+    name: update udash docker image tag to '{{ source "udash" }}'
+    kind: helmchart
+    sourceid: digest
+    scmid: default
+    spec:
+      name: charts/udash
+      file: values.yaml
+      key: "$.images.server.tag"
+      versionincrement: minor
+      appversion: true
+
+  udash-agent:
+    name: update udash docker image tag to '{{ source "udash" }}'
+    kind: helmchart
+    sourceid: digest
+    scmid: default
+    spec:
+      name: charts/udash-agent
+      file: values.yaml
+      key: "$.images.agentrelay.tag"
+      versionincrement: minor
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    spec:
+      labels:
+        - dependencies
+      merge:
+        strategy: auto
+
+scms:
+  default:
+    kind: github
+    spec:
+      branch: "{{ .scm.branch }}"
+      email: "{{ .scm.email }}"
+      owner: "{{ .scm.owner }}"
+      repository: "{{ .scm.repository }}"
+      user: "{{ .scm.user }}"

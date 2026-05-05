@@ -44,7 +44,7 @@ configMap:
   name: ""
   # Annotations to add to the configmap
   annotations: {}
-# The name of the secret used to store agent enviroment variables.
+# The name of the secret used to store agent environment variables.
 # If not set, a name is generated using the fullname template
 secrets:
   name: ""
@@ -63,7 +63,7 @@ secrets:
     # Annotations to add to the database secret
     annotations: {}
     stringdata:
-      # uri must be a valide postgresql uri to connect to the database.
+      # uri must be a valid postgresql uri to connect to the database.
       uri: postgres://postgres:5432/udash?sslmode=disable
 podAnnotations: {}
 podSecurityContext: {}
@@ -181,4 +181,4 @@ defaultUdashConfig: |
 #ingress:
 #  hosts:
 #    - host: testudash
-#  
+#
