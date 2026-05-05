@@ -2,15 +2,19 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 #
+
 images:
   agent:
+    # -- Repository for the Updatecli agent image.
     repository: ghcr.io/updatecli/updatecli
+    # -- Image pull policy for the agent image.
     pullPolicy: IfNotPresent
-    # Overrides the image tag whose default is the chart appVersion.
+    # -- Overrides the image tag whose default is the chart appVersion.
     tag: v0.116.3@sha256:1fc3729536ffd5b902a94d721e62beee482b4ae3968a6e2e79b6ce92b5eb5fdd
+    # -- Command override for the agent container.
     command:
       - "updatecli"
-    ## The exp
+    # -- Arguments for the agent container.
     args:
       - "compose"
       - "diff"
@@ -18,56 +22,66 @@ images:
       - "/etc/updatecli/updatecli-compose.yaml"
       - "--experimental"
   agentrelay:
+    # -- Repository for the AgentRelay image (Udash server running without authentication, cluster-internal only).
     repository: ghcr.io/updatecli/udash
+    # -- Image pull policy for the AgentRelay image.
     pullPolicy: IfNotPresent
-    # Overrides the image tag whose default is the chart appVersion.
+    # -- Overrides the image tag whose default is the chart appVersion.
     tag: v0.14.0@sha256:a52edcb9535d8c392a2e592bf7c3b4fc0c14ecd4b1360aa96639145038b5da75
+    # -- Command override for the AgentRelay container.
     command:
       - "udash"
+    # -- Arguments for the AgentRelay container.
     args:
       - "server"
       - "start"
+
+# -- Secrets for pulling images from private registries.
 imagePullSecrets: []
+# -- Override for the chart name used in resource names.
 nameOverride: ""
+# -- Full override for the chart name used in resource names.
 fullnameOverride: ""
+
 serviceAccount:
-  # Specifies whether a service account should be created
+  # -- Specifies whether a service account should be created.
   create: true
-  # Annotations to add to the service account
+  # -- Annotations to add to the service account.
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
+  # -- The name of the service account to use. If not set and create is true, a name is generated using the fullname template.
   name: ""
-# The name of the configMap used to store front config.js file.
-# If not set, a name is generated using the fullname template
+
 configMap:
+  # -- The name of the ConfigMap used to store agent configuration files. If not set, a name is generated using the fullname template.
   name: ""
-  # Annotations to add to the configmap
+  # -- Annotations to add to the ConfigMap.
   annotations: {}
-# The name of the secret used to store agent environment variables.
-# If not set, a name is generated using the fullname template
+
 secrets:
+  # -- The name of the Secret used to store credentials. If not set, a name is generated using the fullname template.
   name: ""
   ## agent defines the global agents configuration
   agent:
-    # Annotations to add to the database secret
+    # -- Annotations to add to the agent Secret.
     annotations: {}
-    # environments is a map of environment variables to add to the agent container.
-    # where they key is the environment variable name and the value is the environment variable value.
+    # -- Map of environment variables injected into every agent CronJob container (e.g. GITHUB_TOKEN). Values are stored in a Secret.
     environments: {}
     #  "GITHUB_ACTOR": "GitHub username"
     #  "GITHUB_TOKEN": "GitHub PAT"
-  # database defines the database settings used by the agentrelay to post Updatecli reports to a Postgresql database.
-  # The agentrelay is a Udash service running without authentication but only available within the cluster.
   database:
-    # Annotations to add to the database secret
+    # -- Annotations to add to the database Secret.
     annotations: {}
     stringdata:
-      # uri must be a valid postgresql uri to connect to the database.
+      # -- PostgreSQL connection URI used by the AgentRelay to store Updatecli reports.
       uri: postgres://postgres:5432/udash?sslmode=disable
+
+# -- Annotations to add to all pods.
 podAnnotations: {}
+# -- Pod-level security context.
 podSecurityContext: {}
 # fsGroup: 2000
+
+# -- Container-level security context.
 securityContext: {}
 # capabilities:
 #   drop:
@@ -75,38 +89,45 @@ securityContext: {}
 # readOnlyRootFilesystem: true
 # runAsNonRoot: true
 # runAsUser: 1000
+
+# -- Resource requests and limits for all containers. Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources: {}
-# We usually recommend not to specify default resources and to leave this as a conscious
-# choice for the user. This also increases chances charts run on environments with little
-# resources, such as Minikube. If you do want to specify resources, uncomment the following
-# lines, adjust them as necessary, and remove the curly braces after 'resources:'.
 # limits:
 #   cpu: 100m
 #   memory: 128Mi
 # requests:
 #   cpu: 100m
 #   memory: 128Mi
+
 autoscaling:
+  # -- Enable Horizontal Pod Autoscaler.
   enabled: false
+  # -- Minimum number of replicas.
   minReplicas: 1
+  # -- Maximum number of replicas.
   maxReplicas: 100
+  # -- Target CPU utilization percentage for autoscaling.
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
+
+# -- Node selector for pod scheduling.
 nodeSelector: {}
+# -- Tolerations for pod scheduling.
 tolerations: []
+# -- Affinity rules for pod scheduling.
 affinity: {}
+
 service:
+  # -- Kubernetes Service type.
   type: ClusterIP
+  # -- Service port.
   port: 80
 
-# defaultSchedule specify the default schedule for all agents.
-# This schedule is used when no schedule is defined in the agent configuration.
-# The schedule is a cron expression.
+# -- Default cron schedule for all agent CronJobs. Individual agents can override this with their own `schedule` field.
 defaultSchedule: "0 * * * *"
 
-# defaultComposeFile is the default Updatecli compose configuration file to run.
-# defaultComposeFile is mounted in /etc/updatecli/updatecli-compose.yaml
-# More information on https://www.updatecli.io/docs/core/compose/
+# -- Default Updatecli compose configuration file mounted at `/etc/updatecli/updatecli-compose.yaml` in each agent CronJob. Can be overridden per agent.
+# @default -- See values.yaml
 defaultComposeFile: |
   policies:
     - name: Update Updatecli policies
@@ -114,7 +135,8 @@ defaultComposeFile: |
       values:
         - /etc/updatecli/scm.yaml
 
-# defaultUdashConfig is the default configuration used by Updatecli to publish reports to Udash.
+# -- Default Udash connection configuration injected into each agent at `/home/updatecli/.config/updatecli/udash.json`. Can be overridden per agent.
+# @default -- See values.yaml
 defaultUdashConfig: |
   {
     "Auths": {
@@ -126,50 +148,42 @@ defaultUdashConfig: |
     "Default":"agentrelay"
   }
 
-## agents is a list of agents to run periodically via a cronjob.
-## Each agent can have its own schedule, Updatecli compose file and values files.
-## All Updatecli configuration are mounted in the /etc/updatecli/ directory.
-#agents:
-#  "default":
-#    # schedule is a cron expression to run the agent.
-#    # The default schedule is set by defaultSchedule
-#    schedule: "*/30 * * * *"
-#    # valuesFiles is a list of values files that can be used from the Updatecli compose file located in /etc/updatecli/values.d/<id>
-#    # valuesFiles are mounted in /etc/updatecli/values.d
-#    valuesFiles:
-#      scm.yaml: |
-#        scm:
-#          enabled: true
-#          user: updatecli
-#          owner: updatecli
-#          repository: updatecli
-#          branch: main
-#
-#    # composeFile is the Updatecli compose configuration file to run.
-#    # composeFile is mounted in /etc/updatecli/updatecli-compose.yaml
-#    # More information on https://www.updatecli.io/docs/core/compose/
-#    # Default value is set by defaultComposeFile
-#    composeFile: |
-#      policies:
-#        - name: Update Updatecli policies
-#          policy: ghcr.io/updatecli/policies/updatecli/autodiscovery/all:0.5.0
-#          values:
-#            - /etc/updatecli/scm.yaml
-#    defaultUdashConfig: |
-#      {
-#        "Auths": {
-#          "agentrelay": {
-#            "Api":"http://agentrelay/api",
-#            "URL":"http://localhost:3030"
-#          }
-#        },
-#        "Default":"agentrelay"
-#      }
-#
+# -- Map of named agents. Each entry creates a dedicated CronJob that runs Updatecli on the given schedule.
+# @default -- `{}` (no agents created by default)
+# agents:
+#   "default":
+#     # -- Cron schedule for this agent. Defaults to `defaultSchedule`.
+#     schedule: "*/30 * * * *"
+#     # -- Values files mounted into the agent at `/etc/updatecli/values.d/<name>`.
+#     valuesFiles:
+#       scm.yaml: |
+#         scm:
+#           enabled: true
+#           user: updatecli
+#           owner: updatecli
+#           repository: updatecli
+#           branch: main
+#     # -- Updatecli compose file for this agent. Defaults to `defaultComposeFile`.
+#     composeFile: |
+#       policies:
+#         - name: Update Updatecli policies
+#           policy: ghcr.io/updatecli/policies/updatecli/autodiscovery/all:0.5.0
+#           values:
+#             - /etc/updatecli/scm.yaml
+#     # -- Udash config for this agent. Defaults to `defaultUdashConfig`.
+#     defaultUdashConfig: |
+#       {
+#         "Auths": {
+#           "agentrelay": {
+#             "Api":"http://agentrelay/api",
+#             "URL":"http://localhost:3030"
+#           }
+#         },
+#         "Default":"agentrelay"
+#       }
 
-# workflows is a list of Updatecli compose files to run periodically via a cronjob.
-# it accepts a git repository url, a branch and a compose file.
-# For each scm, an argo workflow is created to run the Updatecli compose file.
+# -- List of Git repositories to monitor via Argo CronWorkflows. Requires Argo Workflows to be installed in the cluster. Each entry creates an `argoproj.io/v1alpha1 CronWorkflow`.
+# @default -- `[]` (no workflows created by default)
 # workflows:
 #   - url: "https://github.com/updatecli/udash.git"
 #     branch: "main"
@@ -177,8 +191,3 @@ defaultUdashConfig: |
 #   - url: "https://github.com/updatecli/releasepost.git"
 #     branch: "main"
 #     composefile: "updatecli-compose.yaml"
-
-#ingress:
-#  hosts:
-#    - host: testudash
-#

@@ -1,0 +1,102 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.deprecationWarning" . }}
+
+{{ template "chart.badgesSection" . }}
+
+{{ template "chart.description" . }}
+
+The **udash-agent** chart deploys Updatecli as a scheduled agent inside your Kubernetes cluster. It runs Updatecli periodically (via CronJobs) and ships the results to a [Udash](https://github.com/updatecli/udash) instance for centralised reporting.
+
+## Architecture
+
+| Component | Image | Description |
+|-----------|-------|-------------|
+| `agentrelay` | `ghcr.io/updatecli/udash` | A Udash server running **without authentication**, reachable only inside the cluster at `http://agentrelay/api`. Agent CronJobs POST their reports here. |
+| `agent-<id>` (CronJob) | `ghcr.io/updatecli/updatecli` | One CronJob per entry in `.Values.agents`. Runs `updatecli compose diff` on the configured schedule. |
+| Argo CronWorkflows (optional) | — | When `.Values.workflows` is set and Argo Workflows is installed, one `CronWorkflow` per entry clones a Git repository and runs `updatecli compose diff`. |
+
+## Prerequisites
+
+- Kubernetes 1.19+
+- Helm 3.x
+- A running [Udash](https://updatecli.github.io/charts) instance (the `udash` chart) with its PostgreSQL database
+
+## Get Repository Info
+
+```console
+helm repo add updatecli https://updatecli.github.io/charts
+helm repo update
+```
+
+## TL;DR
+
+```console
+helm install udash-agent updatecli/udash-agent
+```
+
+## Installing the Chart
+
+### Minimal installation
+
+```console
+helm install udash-agent updatecli/udash-agent \
+  --set secrets.database.stringdata.uri="postgres://user:pass@postgres:5432/udash?sslmode=disable"
+```
+
+### With a GitHub agent
+
+Pass a GitHub token and define at least one agent entry:
+
+```yaml
+# my-values.yaml
+secrets:
+  agent:
+    environments:
+      GITHUB_TOKEN: "ghp_xxxx"
+      GITHUB_ACTOR: "my-github-user"
+
+agents:
+  github-repos:
+    schedule: "0 * * * *"
+    valuesFiles:
+      scm.yaml: |
+        scm:
+          enabled: true
+          user: updatecli
+          owner: my-org
+          repository: my-repo
+          branch: main
+```
+
+```console
+helm install udash-agent updatecli/udash-agent -f my-values.yaml
+```
+
+### With Argo Workflows (optional)
+
+Requires [Argo Workflows](https://argoproj.github.io/argo-workflows/) installed in the cluster.
+
+```yaml
+# my-values.yaml
+workflows:
+  - url: "https://github.com/my-org/my-repo.git"
+    branch: "main"
+    composefile: "updatecli-compose.yaml"
+```
+
+```console
+helm install udash-agent updatecli/udash-agent -f my-values.yaml
+```
+
+## Uninstalling the Chart
+
+```console
+helm uninstall udash-agent
+```
+
+## Configuration
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "helm-docs.versionFooter" . }}
