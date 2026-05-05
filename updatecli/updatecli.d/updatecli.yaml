@@ -33,7 +33,17 @@ targets:
       file: values.yaml
       key: "$.images.agent.tag"
       versionincrement: minor
-      appversion: true
+
+  appVersion:
+    name: update chart appVersion to '{{ source "updatecli" }}'
+    kind: helmchart
+    scmid: default
+    sourceid: updatecli
+    spec:
+      name: charts/udash-agent
+      file: Chart.yaml
+      key: "$.appVersion"
+      versionincrement: minor
 
 actions:
   default:
