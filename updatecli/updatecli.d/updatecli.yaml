@@ -1,0 +1,56 @@
+name: Update updatecli docker image
+pipelineid: updatecli/version
+
+labels:
+  release: updatecli
+  monitor: active
+
+sources:
+  updatecli:
+    name: Get latest Updatecli version
+    kind: githubrelease
+    spec:
+      owner: updatecli
+      repository: updatecli
+
+  digest:
+    name: Get Updatecli docker image tag
+    kind: dockerdigest
+    dependson:
+      - updatecli
+    spec:
+      image: ghcr.io/updatecli/updatecli
+      tag: '{{ source "updatecli" }}'
+
+targets:
+  udash-agent:
+    name: update updatecli docker image tag to '{{ source "updatecli" }}'
+    kind: helmchart
+    sourceid: digest
+    scmid: default
+    spec:
+      name: charts/udash-agent
+      file: values.yaml
+      key: "$.images.agent.tag"
+      versionincrement: minor
+      appversion: true
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    spec:
+      labels:
+        - dependencies
+      merge:
+        strategy: auto
+
+scms:
+  default:
+    kind: github
+    spec:
+      branch: "{{ .scm.branch }}"
+      email: "{{ .scm.email }}"
+      owner: "{{ .scm.owner }}"
+      repository: "{{ .scm.repository }}"
+      user: "{{ .scm.user }}"

@@ -1,0 +1,55 @@
+name: Update Udash front docker image
+pipelineid: udash-front/version
+
+labels:
+  release: udash-front
+  monitor: active
+
+sources:
+  udash-front:
+    name: Get latest Udash front version
+    kind: githubrelease
+    spec:
+      owner: updatecli
+      repository: udash-front
+
+  digest:
+    name: Get Udash front docker image digest
+    kind: dockerdigest
+    dependson:
+      - udash-front
+    spec:
+      image: ghcr.io/updatecli/udash-front
+      tag: '{{ source "udash-front" }}'
+
+targets:
+  udash-front:
+    name: update udash front docker image tag to '{{ source "udash-front" }}'
+    kind: helmchart
+    sourceid: digest
+    scmid: default
+    spec:
+      name: charts/udash
+      file: values.yaml
+      key: "$.images.front.tag"
+      versionincrement: minor
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    spec:
+      labels:
+        - dependencies
+      merge:
+        strategy: auto
+
+scms:
+  default:
+    kind: github
+    spec:
+      branch: "{{ .scm.branch }}"
+      email: "{{ .scm.email }}"
+      owner: "{{ .scm.owner }}"
+      repository: "{{ .scm.repository }}"
+      user: "{{ .scm.user }}"
