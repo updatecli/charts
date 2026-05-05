@@ -5,9 +5,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 4 * * *"
-
 permissions: {}
-
 jobs:
   updatecli:
     runs-on: ubuntu-latest
