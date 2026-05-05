@@ -1,0 +1,86 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.deprecationWarning" . }}
+
+{{ template "chart.badgesSection" . }}
+
+{{ template "chart.description" . }}
+
+[Udash](https://github.com/updatecli/udash) is the Updatecli Dashboard — a web application that collects and displays Updatecli reports, giving your team a centralised view of software update activity across all your repositories.
+
+## Architecture
+
+The chart deploys two workloads:
+
+| Component | Image | Description |
+|-----------|-------|-------------|
+| `udash-server` | `ghcr.io/updatecli/udash` | Backend API server (port 8080). Stores and serves Updatecli reports. |
+| `udash-front` | `ghcr.io/updatecli/udash-front` | React SPA served on port 80. |
+
+An optional **Ingress** routes:
+- `/` → `udash-front`
+- `/api` → `udash-server`
+
+## Prerequisites
+
+- Kubernetes 1.19+
+- Helm 3.x
+- A running **PostgreSQL** instance accessible from the cluster
+
+## Get Repository Info
+
+```console
+helm repo add updatecli https://updatecli.github.io/charts
+helm repo update
+```
+
+## TL;DR
+
+```console
+helm install udash updatecli/udash
+```
+
+## Installing the Chart
+
+### Read-only mode (default)
+
+In read-only mode the server runs without authentication (dry-run). No OAuth credentials are required.
+
+```console
+helm install udash updatecli/udash \
+  --set secrets.database.stringdata.uri="postgres://user:pass@postgres:5432/udash?sslmode=disable"
+```
+
+### Full mode with OAuth2
+
+Set `readonly: false` and supply your OAuth2 provider details:
+
+```console
+helm install udash updatecli/udash \
+  --set readonly=false \
+  --set secrets.database.stringdata.uri="postgres://user:pass@postgres:5432/udash?sslmode=disable" \
+  --set secrets.auth.stringdata.clientid="my-client-id" \
+  --set secrets.auth.stringdata.audience="https://udash.example/api" \
+  --set secrets.auth.stringdata.issuer="https://auth.example"
+```
+
+### With Ingress
+
+```console
+helm install udash updatecli/udash \
+  --set ingress.enabled=true \
+  --set ingress.className=nginx \
+  --set "ingress.hosts[0].host=udash.example.com"
+```
+
+## Uninstalling the Chart
+
+```console
+helm uninstall udash
+```
+
+## Configuration
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "helm-docs.versionFooter" . }}

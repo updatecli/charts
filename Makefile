@@ -8,3 +8,7 @@ lint:
 template:
 	helm template udash ./charts/udash
 	helm template udash ./charts/udash-agent
+
+.PHONY: docs
+docs:
+	helm-docs --chart-search-root charts

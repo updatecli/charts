@@ -2,60 +2,83 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 #
+
+# -- Number of replicas for the udash-server and udash-front deployments.
 replicaCount: 1
+
 images:
   server:
+    # -- Repository for the udash-server image.
     repository: ghcr.io/updatecli/udash
+    # -- Image pull policy for the udash-server image.
     pullPolicy: IfNotPresent
-    # Overrides the image tag whose default is the chart appVersion.
+    # -- Overrides the image tag whose default is the chart appVersion.
     tag: v0.14.0@sha256:a52edcb9535d8c392a2e592bf7c3b4fc0c14ecd4b1360aa96639145038b5da75
+    # -- Command override for the udash-server container.
     command:
       - "udash"
+    # -- Arguments for the udash-server container.
     args:
       - "server"
       - "start"
   front:
+    # -- Repository for the udash-front image.
     repository: ghcr.io/updatecli/udash-front
+    # -- Image pull policy for the udash-front image.
     pullPolicy: IfNotPresent
-    # Overrides the image tag whose default is the chart appVersion.
+    # -- Overrides the image tag whose default is the chart appVersion.
     tag: v0.17.0@sha256:9afa7d7b0d8a8bc70154b83fd3ded620714cd79443c9e17a72bc5d7611c22f28
+
+# -- Secrets for pulling images from private registries.
 imagePullSecrets: []
+# -- Override for the chart name used in resource names.
 nameOverride: ""
+# -- Full override for the chart name used in resource names.
 fullnameOverride: ""
+
 serviceAccount:
-  # Specifies whether a service account should be created
+  # -- Specifies whether a service account should be created.
   create: true
-  # Annotations to add to the service account
+  # -- Annotations to add to the service account.
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
+  # -- The name of the service account to use. If not set and create is true, a name is generated using the fullname template.
   name: ""
-# The name of the configMap used to store front config.js file.
-# If not set, a name is generated using the fullname template
+
 configMap:
+  # -- The name of the ConfigMap used to store server/front configuration. If not set, a name is generated using the fullname template.
   name: ""
-  # Annotations to add to the configmap
+  # -- Annotations to add to the ConfigMap.
   annotations: {}
-# The name of the secret used to store agent environment variables.
-# If not set, a name is generated using the fullname template
+
 secrets:
+  # -- The name of the Secret used to store credentials. If not set, a name is generated using the fullname template.
   name: ""
   database:
-    # Annotations to add to the database secret
+    # -- Annotations to add to the database Secret.
     annotations: {}
     stringdata:
+      # -- PostgreSQL connection URI used by the udash-server.
       uri: postgres://postgres:5432/udash?sslmode=disable
   auth:
-    # Annotations to add to the auth secret
+    # -- Annotations to add to the auth Secret.
     annotations: {}
     stringdata:
+      # -- Authentication mode. Supported values: `oauth`.
       mode: oauth
+      # -- OAuth2 client ID.
       clientid: xxx.example
+      # -- OAuth2 audience.
       audience: https://udash.example/api
+      # -- OAuth2 issuer URL.
       issuer: https://oauth.example
+
+# -- Annotations to add to all pods.
 podAnnotations: {}
+# -- Pod-level security context.
 podSecurityContext: {}
 # fsGroup: 2000
+
+# -- Container-level security context.
 securityContext: {}
 # capabilities:
 #   drop:
@@ -63,39 +86,57 @@ securityContext: {}
 # readOnlyRootFilesystem: true
 # runAsNonRoot: true
 # runAsUser: 1000
+
 ingress:
+  # -- Enable Ingress resource creation.
   enabled: false
+  # -- IngressClass name (Kubernetes >= 1.18).
   className: ""
+  # -- Annotations to add to the Ingress resource.
   annotations: {}
   # kubernetes.io/ingress.class: nginx
   # kubernetes.io/tls-acme: "true"
+  # -- Ingress host rules. Traffic to `/` is forwarded to udash-front; traffic to `/api` is forwarded to udash-server.
   hosts:
     - host: udash.local
+  # -- TLS configuration for the Ingress.
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
   #      - chart-example.local
+
+# -- Resource requests and limits for all containers. Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources: {}
-# We usually recommend not to specify default resources and to leave this as a conscious
-# choice for the user. This also increases chances charts run on environments with little
-# resources, such as Minikube. If you do want to specify resources, uncomment the following
-# lines, adjust them as necessary, and remove the curly braces after 'resources:'.
 # limits:
 #   cpu: 100m
 #   memory: 128Mi
 # requests:
 #   cpu: 100m
 #   memory: 128Mi
+
 autoscaling:
+  # -- Enable Horizontal Pod Autoscaler.
   enabled: false
+  # -- Minimum number of replicas.
   minReplicas: 1
+  # -- Maximum number of replicas.
   maxReplicas: 100
+  # -- Target CPU utilization percentage for autoscaling.
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
+
+# -- Node selector for pod scheduling.
 nodeSelector: {}
+# -- Tolerations for pod scheduling.
 tolerations: []
+# -- Affinity rules for pod scheduling.
 affinity: {}
+
 service:
+  # -- Kubernetes Service type.
   type: ClusterIP
+  # -- Service port.
   port: 80
+
+# -- Run the udash-server in read-only / dry-run mode (no authentication required). Set to `false` to enable full OAuth2 authentication.
 readonly: true
