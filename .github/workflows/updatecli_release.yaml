@@ -11,12 +11,16 @@ on:
       - "updatecli-release"
       - "udash-release"
       - "udash-front-release"
+permissions: {}
+
 jobs:
   updatecli:
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout"
         uses: "actions/checkout@v4"
+        with:
+          persist-credentials: false
 
       - name: "Install Updatecli"
         uses: "updatecli/updatecli-action@v2.100.0"
