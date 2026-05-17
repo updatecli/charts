@@ -92,18 +92,42 @@ ingress:
   enabled: false
   # -- IngressClass name (Kubernetes >= 1.18).
   className: ""
-  # -- Annotations to add to the Ingress resource.
+  # -- Annotations to add to the front Ingress resource.
   annotations: {}
   # kubernetes.io/ingress.class: nginx
   # kubernetes.io/tls-acme: "true"
-  # -- Ingress host rules. Traffic to `/` is forwarded to udash-front; traffic to `/api` is forwarded to udash-server.
+  # -- Ingress host rules for the front. Traffic is forwarded according to ingress.paths.
   hosts:
     - host: udash.local
-  # -- TLS configuration for the Ingress.
+  # -- TLS configuration for the front Ingress.
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
   #      - chart-example.local
+  paths:
+    # -- Path prefix for udash-front on same-host routing.
+    front: "/"
+    # -- Path prefix for udash-server on same-host routing (when ingress.server.host is empty).
+    server: "/api"
+  server:
+    # -- Optional separate hostname for the API server.
+    # When empty (default): udash-server is routed via ingress.paths.server on each front host.
+    # When set: a second Ingress is created for this host routing to udash-server.
+    host: ""
+    # -- Path prefix for udash-server on the separate server host.
+    path: "/api"
+    # -- Annotations to add to the server Ingress resource (e.g. rewrite-target when path differs from /api).
+    annotations: {}
+    # -- TLS configuration for the server Ingress.
+    tls: []
+
+front:
+  # -- API base URL used by the browser.
+  # Use a relative path (e.g. "/api") for same-host routing.
+  # Use an absolute URL (e.g. "https://api.domain.example/api") for split-domain routing.
+  apiBaseUrl: "/api"
+  # -- Base path for the SPA. Change when the front is mounted at a sub-path (e.g. "/project").
+  appBasePath: "/"
 
 # -- Resource requests and limits for all containers. Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources: {}

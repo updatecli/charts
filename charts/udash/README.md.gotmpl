@@ -91,13 +91,79 @@ helm install udash updatecli/udash \
 
 When using an external PostgreSQL in full mode, also set `cnpg.enabled=false` and `secrets.database.stringdata.uri`.
 
-### With Ingress
+### With Ingress (same host, default paths)
+
+Routes `udash.example.com/` to the front and `udash.example.com/api` to the server:
 
 ```console
 helm install udash updatecli/udash \
   --set ingress.enabled=true \
-  --set ingress.className=nginx \
+  --set ingress.className=traefik \
   --set "ingress.hosts[0].host=udash.example.com"
+```
+
+### With Ingress (split domain)
+
+Routes the front and API to different hostnames. Set `front.apiBaseUrl` to the absolute API URL
+so the browser knows where to reach the server:
+
+```yaml
+front:
+  apiBaseUrl: "https://api.udash.example.com/api"
+
+ingress:
+  enabled: true
+  className: traefik
+  hosts:
+    - host: udash.example.com
+  tls:
+    - secretName: udash-tls
+      hosts: [udash.example.com]
+  server:
+    host: api.udash.example.com
+    tls:
+      - secretName: udash-api-tls
+        hosts: [api.udash.example.com]
+```
+
+### With Ingress (split domain and custom sub-paths)
+
+Serves the front at `domain.example/project` and the API at `api.domain.example/myproject`.
+When the external server sub-path differs from `/api`, Traefik requires a `Middleware` resource
+to rewrite the path to the server's internal `/api` prefix. Create the middleware first:
+
+```yaml
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: udash-api-rewrite
+  namespace: default
+spec:
+  replacePathRegex:
+    regex: "^/myproject(.*)"
+    replacement: "/api$1"
+```
+
+Then reference it via `ingress.server.annotations` (the middleware name format is
+`<namespace>-<middlewareName>@kubernetescrd`):
+
+```yaml
+front:
+  appBasePath: "/project"
+  apiBaseUrl: "https://api.domain.example/myproject"
+
+ingress:
+  enabled: true
+  className: traefik
+  hosts:
+    - host: domain.example
+  paths:
+    front: "/project"
+  server:
+    host: api.domain.example
+    path: "/myproject"
+    annotations:
+      traefik.ingress.kubernetes.io/router.middlewares: default-udash-api-rewrite@kubernetescrd
 ```
 
 ## Uninstalling the Chart

@@ -89,13 +89,79 @@ helm install udash updatecli/udash \
 
 When using an external PostgreSQL in full mode, also set `cnpg.enabled=false` and `secrets.database.stringdata.uri`.
 
-### With Ingress
+### With Ingress (same host, default paths)
+
+Routes `udash.example.com/` to the front and `udash.example.com/api` to the server:
 
 ```console
 helm install udash updatecli/udash \
   --set ingress.enabled=true \
-  --set ingress.className=nginx \
+  --set ingress.className=traefik \
   --set "ingress.hosts[0].host=udash.example.com"
+```
+
+### With Ingress (split domain)
+
+Routes the front and API to different hostnames. Set `front.apiBaseUrl` to the absolute API URL
+so the browser knows where to reach the server:
+
+```yaml
+front:
+  apiBaseUrl: "https://api.udash.example.com/api"
+
+ingress:
+  enabled: true
+  className: traefik
+  hosts:
+    - host: udash.example.com
+  tls:
+    - secretName: udash-tls
+      hosts: [udash.example.com]
+  server:
+    host: api.udash.example.com
+    tls:
+      - secretName: udash-api-tls
+        hosts: [api.udash.example.com]
+```
+
+### With Ingress (split domain and custom sub-paths)
+
+Serves the front at `domain.example/project` and the API at `api.domain.example/myproject`.
+When the external server sub-path differs from `/api`, Traefik requires a `Middleware` resource
+to rewrite the path to the server's internal `/api` prefix. Create the middleware first:
+
+```yaml
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: udash-api-rewrite
+  namespace: default
+spec:
+  replacePathRegex:
+    regex: "^/myproject(.*)"
+    replacement: "/api$1"
+```
+
+Then reference it via `ingress.server.annotations` (the middleware name format is
+`<namespace>-<middlewareName>@kubernetescrd`):
+
+```yaml
+front:
+  appBasePath: "/project"
+  apiBaseUrl: "https://api.domain.example/myproject"
+
+ingress:
+  enabled: true
+  className: traefik
+  hosts:
+    - host: domain.example
+  paths:
+    front: "/project"
+  server:
+    host: api.domain.example
+    path: "/myproject"
+    annotations:
+      traefik.ingress.kubernetes.io/router.middlewares: default-udash-api-rewrite@kubernetescrd
 ```
 
 ## Uninstalling the Chart
@@ -122,21 +188,29 @@ helm uninstall udash
 | cnpg.storage.size | string | `"1Gi"` | Storage size for each PostgreSQL instance. |
 | configMap.annotations | object | `{}` | Annotations to add to the ConfigMap. |
 | configMap.name | string | `""` | The name of the ConfigMap used to store server/front configuration. If not set, a name is generated using the fullname template. |
+| front.apiBaseUrl | string | `"/api"` | API base URL used by the browser. Use a relative path (e.g. "/api") for same-host routing. Use an absolute URL (e.g. "https://api.domain.example/api") for split-domain routing. |
+| front.appBasePath | string | `"/"` | Base path for the SPA. Change when the front is mounted at a sub-path (e.g. "/project"). |
 | fullnameOverride | string | `""` | Full override for the chart name used in resource names. |
 | imagePullSecrets | list | `[]` | Secrets for pulling images from private registries. |
 | images.front.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the udash-front image. |
 | images.front.repository | string | `"ghcr.io/updatecli/udash-front"` | Repository for the udash-front image. |
-| images.front.tag | string | `"v0.17.0@sha256:9afa7d7b0d8a8bc70154b83fd3ded620714cd79443c9e17a72bc5d7611c22f28"` | Overrides the image tag whose default is the chart appVersion. |
+| images.front.tag | string | `"v0.19.0@sha256:b220b047a7536ab3bd77a5a312da10a051802a674385cd50ac7df00e652c7e5e"` | Overrides the image tag whose default is the chart appVersion. |
 | images.server.args | list | `["server","start"]` | Arguments for the udash-server container. |
 | images.server.command | list | `["udash"]` | Command override for the udash-server container. |
 | images.server.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the udash-server image. |
 | images.server.repository | string | `"ghcr.io/updatecli/udash"` | Repository for the udash-server image. |
 | images.server.tag | string | `"v0.14.0@sha256:a52edcb9535d8c392a2e592bf7c3b4fc0c14ecd4b1360aa96639145038b5da75"` | Overrides the image tag whose default is the chart appVersion. |
-| ingress.annotations | object | `{}` | Annotations to add to the Ingress resource. |
+| ingress.annotations | object | `{}` | Annotations to add to the front Ingress resource. |
 | ingress.className | string | `""` | IngressClass name (Kubernetes >= 1.18). |
 | ingress.enabled | bool | `false` | Enable Ingress resource creation. |
-| ingress.hosts | list | `[{"host":"udash.local"}]` | Ingress host rules. Traffic to `/` is forwarded to udash-front; traffic to `/api` is forwarded to udash-server. |
-| ingress.tls | list | `[]` | TLS configuration for the Ingress. |
+| ingress.hosts | list | `[{"host":"udash.local"}]` | Ingress host rules for the front. Traffic is forwarded according to ingress.paths. |
+| ingress.paths.front | string | `"/"` | Path prefix for udash-front on same-host routing. |
+| ingress.paths.server | string | `"/api"` | Path prefix for udash-server on same-host routing (when ingress.server.host is empty). |
+| ingress.server.annotations | object | `{}` | Annotations to add to the server Ingress resource (e.g. rewrite-target when path differs from /api). |
+| ingress.server.host | string | `""` | Optional separate hostname for the API server. When empty (default): udash-server is routed via ingress.paths.server on each front host. When set: a second Ingress is created for this host routing to udash-server. |
+| ingress.server.path | string | `"/api"` | Path prefix for udash-server on the separate server host. |
+| ingress.server.tls | list | `[]` | TLS configuration for the server Ingress. |
+| ingress.tls | list | `[]` | TLS configuration for the front Ingress. |
 | nameOverride | string | `""` | Override for the chart name used in resource names. |
 | nodeSelector | object | `{}` | Node selector for pod scheduling. |
 | podAnnotations | object | `{}` | Annotations to add to all pods. |
