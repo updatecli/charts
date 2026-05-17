@@ -82,3 +82,10 @@ Create the name of the secrets use by udash agents
 {{- define "udash.secretName" -}}
 {{- default (include "udash.fullname" .) .Values.secrets.name }}
 {{- end }}
+
+{{/*
+Create the name of the CloudNative-PG cluster
+*/}}
+{{- define "udash.cnpgClusterName" -}}
+{{- printf "%s-db" (include "udash.fullname" .) }}
+{{- end }}

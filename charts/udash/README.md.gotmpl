@@ -25,7 +25,24 @@ An optional **Ingress** routes:
 
 - Kubernetes 1.19+
 - Helm 3.x
-- A running **PostgreSQL** instance accessible from the cluster
+- **[CloudNative-PG operator](https://cloudnative-pg.io/)** (when `cnpg.enabled: true`, which is the default)
+
+Install the CNPG operator before installing this chart, and use `--wait` to ensure the operator
+pod is fully ready (including its admission webhook) before proceeding:
+
+```console
+helm repo add cnpg https://cloudnative-pg.github.io/charts
+helm upgrade --install cnpg \
+  --namespace cnpg-system \
+  --create-namespace \
+  cnpg/cloudnative-pg \
+  --wait
+```
+
+Without `--wait`, the operator pod may not be ready when the chart creates the `Cluster` resource,
+causing: `failed calling webhook "mcluster.cnpg.io": no endpoints available for service "cnpg-webhook-service"`.
+
+If you prefer to bring your own PostgreSQL instance, set `cnpg.enabled=false` and supply the connection URI via `secrets.database.stringdata.uri`.
 
 ## Get Repository Info
 
@@ -42,12 +59,21 @@ helm install udash updatecli/udash
 
 ## Installing the Chart
 
-### Read-only mode (default)
+### Default (CloudNative-PG managed PostgreSQL)
 
-In read-only mode the server runs without authentication (dry-run). No OAuth credentials are required.
+By default the chart provisions a CNPG `Cluster` and injects credentials automatically. Just install the CNPG operator first (see Prerequisites), then:
+
+```console
+helm install udash updatecli/udash
+```
+
+### Read-only mode with external PostgreSQL
+
+Disable CNPG and supply your own connection URI:
 
 ```console
 helm install udash updatecli/udash \
+  --set cnpg.enabled=false \
   --set secrets.database.stringdata.uri="postgres://user:pass@postgres:5432/udash?sslmode=disable"
 ```
 
@@ -58,11 +84,12 @@ Set `readonly: false` and supply your OAuth2 provider details:
 ```console
 helm install udash updatecli/udash \
   --set readonly=false \
-  --set secrets.database.stringdata.uri="postgres://user:pass@postgres:5432/udash?sslmode=disable" \
   --set secrets.auth.stringdata.clientid="my-client-id" \
   --set secrets.auth.stringdata.audience="https://udash.example/api" \
   --set secrets.auth.stringdata.issuer="https://auth.example"
 ```
+
+When using an external PostgreSQL in full mode, also set `cnpg.enabled=false` and `secrets.database.stringdata.uri`.
 
 ### With Ingress
 

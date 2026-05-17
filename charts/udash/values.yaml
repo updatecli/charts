@@ -63,8 +63,8 @@ secrets:
     # -- Annotations to add to the auth Secret.
     annotations: {}
     stringdata:
-      # -- Authentication mode. Supported values: `oauth`.
-      mode: oauth
+      # -- Authentication mode. Supported values: `oauth`, `none`.
+      mode: none
       # -- OAuth2 client ID.
       clientid: xxx.example
       # -- OAuth2 audience.
@@ -140,3 +140,16 @@ service:
 
 # -- Run the udash-server in read-only / dry-run mode (no authentication required). Set to `false` to enable full OAuth2 authentication.
 readonly: true
+
+cnpg:
+  # -- Enable CloudNative-PG managed PostgreSQL cluster. When true, the chart provisions a CNPG Cluster and injects credentials automatically. Requires the CNPG operator to be installed separately.
+  enabled: true
+  # -- Number of PostgreSQL instances in the CNPG cluster.
+  instances: 1
+  # -- PostgreSQL database name created during cluster bootstrap.
+  database: udash
+  # -- PostgreSQL role/owner created during cluster bootstrap.
+  owner: udash
+  storage:
+    # -- Storage size for each PostgreSQL instance.
+    size: 1Gi

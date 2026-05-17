@@ -1,6 +1,6 @@
 # udash
 
-![Version: 0.25.0](https://img.shields.io/badge/Version-0.25.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.1.0](https://img.shields.io/badge/AppVersion-0.1.0-informational?style=flat-square)
+![Version: 0.26.0](https://img.shields.io/badge/Version-0.26.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.1.0](https://img.shields.io/badge/AppVersion-0.1.0-informational?style=flat-square)
 
 Udash, the Updatecli DASHboard
 
@@ -23,7 +23,24 @@ An optional **Ingress** routes:
 
 - Kubernetes 1.19+
 - Helm 3.x
-- A running **PostgreSQL** instance accessible from the cluster
+- **[CloudNative-PG operator](https://cloudnative-pg.io/)** (when `cnpg.enabled: true`, which is the default)
+
+Install the CNPG operator before installing this chart, and use `--wait` to ensure the operator
+pod is fully ready (including its admission webhook) before proceeding:
+
+```console
+helm repo add cnpg https://cloudnative-pg.github.io/charts
+helm upgrade --install cnpg \
+  --namespace cnpg-system \
+  --create-namespace \
+  cnpg/cloudnative-pg \
+  --wait
+```
+
+Without `--wait`, the operator pod may not be ready when the chart creates the `Cluster` resource,
+causing: `failed calling webhook "mcluster.cnpg.io": no endpoints available for service "cnpg-webhook-service"`.
+
+If you prefer to bring your own PostgreSQL instance, set `cnpg.enabled=false` and supply the connection URI via `secrets.database.stringdata.uri`.
 
 ## Get Repository Info
 
@@ -40,12 +57,21 @@ helm install udash updatecli/udash
 
 ## Installing the Chart
 
-### Read-only mode (default)
+### Default (CloudNative-PG managed PostgreSQL)
 
-In read-only mode the server runs without authentication (dry-run). No OAuth credentials are required.
+By default the chart provisions a CNPG `Cluster` and injects credentials automatically. Just install the CNPG operator first (see Prerequisites), then:
+
+```console
+helm install udash updatecli/udash
+```
+
+### Read-only mode with external PostgreSQL
+
+Disable CNPG and supply your own connection URI:
 
 ```console
 helm install udash updatecli/udash \
+  --set cnpg.enabled=false \
   --set secrets.database.stringdata.uri="postgres://user:pass@postgres:5432/udash?sslmode=disable"
 ```
 
@@ -56,11 +82,12 @@ Set `readonly: false` and supply your OAuth2 provider details:
 ```console
 helm install udash updatecli/udash \
   --set readonly=false \
-  --set secrets.database.stringdata.uri="postgres://user:pass@postgres:5432/udash?sslmode=disable" \
   --set secrets.auth.stringdata.clientid="my-client-id" \
   --set secrets.auth.stringdata.audience="https://udash.example/api" \
   --set secrets.auth.stringdata.issuer="https://auth.example"
 ```
+
+When using an external PostgreSQL in full mode, also set `cnpg.enabled=false` and `secrets.database.stringdata.uri`.
 
 ### With Ingress
 
@@ -88,6 +115,11 @@ helm uninstall udash
 | autoscaling.maxReplicas | int | `100` | Maximum number of replicas. |
 | autoscaling.minReplicas | int | `1` | Minimum number of replicas. |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` | Target CPU utilization percentage for autoscaling. |
+| cnpg.database | string | `"udash"` | PostgreSQL database name created during cluster bootstrap. |
+| cnpg.enabled | bool | `true` | Enable CloudNative-PG managed PostgreSQL cluster. When true, the chart provisions a CNPG Cluster and injects credentials automatically. Requires the CNPG operator to be installed separately. |
+| cnpg.instances | int | `1` | Number of PostgreSQL instances in the CNPG cluster. |
+| cnpg.owner | string | `"udash"` | PostgreSQL role/owner created during cluster bootstrap. |
+| cnpg.storage.size | string | `"1Gi"` | Storage size for each PostgreSQL instance. |
 | configMap.annotations | object | `{}` | Annotations to add to the ConfigMap. |
 | configMap.name | string | `""` | The name of the ConfigMap used to store server/front configuration. If not set, a name is generated using the fullname template. |
 | fullnameOverride | string | `""` | Full override for the chart name used in resource names. |
@@ -116,7 +148,7 @@ helm uninstall udash
 | secrets.auth.stringdata.audience | string | `"https://udash.example/api"` | OAuth2 audience. |
 | secrets.auth.stringdata.clientid | string | `"xxx.example"` | OAuth2 client ID. |
 | secrets.auth.stringdata.issuer | string | `"https://oauth.example"` | OAuth2 issuer URL. |
-| secrets.auth.stringdata.mode | string | `"oauth"` | Authentication mode. Supported values: `oauth`. |
+| secrets.auth.stringdata.mode | string | `"none"` | Authentication mode. Supported values: `oauth`, `none`. |
 | secrets.database.annotations | object | `{}` | Annotations to add to the database Secret. |
 | secrets.database.stringdata.uri | string | `"postgres://postgres:5432/udash?sslmode=disable"` | PostgreSQL connection URI used by the udash-server. |
 | secrets.name | string | `""` | The name of the Secret used to store credentials. If not set, a name is generated using the fullname template. |

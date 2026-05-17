@@ -41,6 +41,19 @@ spec:
           env:
             - name: GIN_MODE
               value: release
+            {{- if .Values.cnpg.enabled }}
+            - name: UDASH_DB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "udash.cnpgClusterName" . }}-app
+                  key: uri
+            {{- else }}
+            - name: UDASH_DB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "udash.secretName" . }}-database
+                  key: uri
+            {{- end }}
           ports:
             - name: http
               containerPort: 8080

@@ -14,16 +14,23 @@ data:
   config.yaml: |
     server:
       dryrun: true
+    {{- if not .Values.cnpg.enabled }}
     database:
       uri: "{{ .Values.secrets.database.stringdata.uri }}"
+    {{- end }}
 {{- else }}
   config.yaml: |
     server:
       auth:
-        mode: "oauth"
+        mode: "{{ .Values.secrets.auth.stringdata.mode }}"
+        {{- if and ( eq .Values.secrets.auth.stringdata.mode "oauth" ) }}
         issuer: "{{ .Values.secrets.auth.stringdata.issuer }}"
         audience: "{{ .Values.secrets.auth.stringdata.audience }}"
+        clientid: "{{ .Values.secrets.auth.stringdata.clientid }}"
+        {{- end }}
+    {{- if not .Values.cnpg.enabled }}
     database:
       uri: "{{ .Values.secrets.database.stringdata.uri }}"
+    {{- end }}
 {{- end }}
 
