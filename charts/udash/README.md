@@ -100,6 +100,59 @@ helm install udash updatecli/udash \
   --set "ingress.hosts[0].host=udash.example.com"
 ```
 
+### With Ingress (same host, subpath)
+
+Serves the front at `app.example.com/updatecli` and the API at `app.example.com/api`.
+The front ingress must strip the `/updatecli` prefix before forwarding to nginx so that
+the nginx container always receives paths starting with `/`. Configure the SPA base path
+to match via `front.appBasePath`.
+
+**nginx ingress controller** (uses `rewrite-target` + `use-regex`):
+
+```yaml
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+  hosts:
+    - host: app.example.com
+  paths:
+    front: "/updatecli(/|$)(.*)"   # regex captures the suffix to pass as $2
+    server: "/api"                  # no rewrite needed; server handles /api natively
+
+front:
+  appBasePath: "/updatecli"  # must match the path prefix (without regex)
+  apiBaseUrl: "/api"
+```
+
+**Traefik** — set `ingress.traefik.stripPrefix.enabled: true` and the chart creates the
+`StripPrefix` Middleware CR and wires its annotation into the Ingress automatically.
+Requires Traefik CRDs (`traefik.io/v1alpha1`) to be installed in the cluster:
+
+```yaml
+ingress:
+  enabled: true
+  className: traefik
+  hosts:
+    - host: app.example.com
+  paths:
+    front: "/updatecli"
+    server: "/api"
+  traefik:
+    stripPrefix:
+      enabled: true   # creates the Middleware CR and injects the router annotation
+
+front:
+  appBasePath: "/updatecli"
+  apiBaseUrl: "/api"
+```
+
+> **Note:** `front.appBasePath` tells the SPA JavaScript router which path prefix to use for
+> client-side navigation. It must always match the **un-rewritten** path (e.g. `/updatecli`).
+> The API server does not need a strip-prefix because it handles `/api` natively.
+
 ### With Ingress (split domain)
 
 Routes the front and API to different hostnames. Set `front.apiBaseUrl` to the absolute API URL
@@ -126,29 +179,19 @@ ingress:
 
 ### With Ingress (split domain and custom sub-paths)
 
-Serves the front at `domain.example/project` and the API at `api.domain.example/myproject`.
-When the external server sub-path differs from `/api`, Traefik requires a `Middleware` resource
-to rewrite the path to the server's internal `/api` prefix. Create the middleware first:
+Serves the front at `domain.example/project` and the API at `api.domain.example/updatecli`.
+Set `ingress.traefik.stripPrefix.enabled: true` and the chart automatically creates all needed
+Traefik Middlewares and wires their annotations:
 
-```yaml
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: udash-api-rewrite
-  namespace: default
-spec:
-  replacePathRegex:
-    regex: "^/myproject(.*)"
-    replacement: "/api$1"
-```
+- **Front**: `StripPrefix /project` → nginx receives `/`
+- **Server**: `StripPrefix /updatecli` → `AddPrefix /api` → backend receives `/api/*`
 
-Then reference it via `ingress.server.annotations` (the middleware name format is
-`<namespace>-<middlewareName>@kubernetescrd`):
+Requires Traefik CRDs (`traefik.io/v1alpha1`) to be installed:
 
 ```yaml
 front:
   appBasePath: "/project"
-  apiBaseUrl: "https://api.domain.example/myproject"
+  apiBaseUrl: "https://api.domain.example/updatecli"
 
 ingress:
   enabled: true
@@ -157,12 +200,22 @@ ingress:
     - host: domain.example
   paths:
     front: "/project"
+    server: "/api"
+  traefik:
+    stripPrefix:
+      enabled: true   # creates Middlewares for both front and server automatically
   server:
     host: api.domain.example
-    path: "/myproject"
-    annotations:
-      traefik.ingress.kubernetes.io/router.middlewares: default-udash-api-rewrite@kubernetescrd
+    path: "/updatecli"
 ```
+
+The chart renders:
+
+| Middleware | Type | Effect |
+|---|---|---|
+| `<release>-strip-front` | StripPrefix `/project` | strips front sub-path before nginx |
+| `<release>-strip-server` | StripPrefix `/updatecli` | strips external prefix on API host |
+| `<release>-add-server` | AddPrefix `/api` | restores the `/api` prefix the backend expects |
 
 ## Uninstalling the Chart
 
@@ -189,7 +242,7 @@ helm uninstall udash
 | configMap.annotations | object | `{}` | Annotations to add to the ConfigMap. |
 | configMap.name | string | `""` | The name of the ConfigMap used to store server/front configuration. If not set, a name is generated using the fullname template. |
 | front.apiBaseUrl | string | `"/api"` | API base URL used by the browser. Use a relative path (e.g. "/api") for same-host routing. Use an absolute URL (e.g. "https://api.domain.example/api") for split-domain routing. |
-| front.appBasePath | string | `"/"` | Base path for the SPA. Change when the front is mounted at a sub-path (e.g. "/project"). |
+| front.appBasePath | string | `"/"` | Base path for the SPA. Must match ingress.paths.front when using subpath routing. Example: set both ingress.paths.front and front.appBasePath to "/updatecli". |
 | fullnameOverride | string | `""` | Full override for the chart name used in resource names. |
 | imagePullSecrets | list | `[]` | Secrets for pulling images from private registries. |
 | images.front.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the udash-front image. |
@@ -200,17 +253,18 @@ helm uninstall udash
 | images.server.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the udash-server image. |
 | images.server.repository | string | `"ghcr.io/updatecli/udash"` | Repository for the udash-server image. |
 | images.server.tag | string | `"v0.14.0@sha256:a52edcb9535d8c392a2e592bf7c3b4fc0c14ecd4b1360aa96639145038b5da75"` | Overrides the image tag whose default is the chart appVersion. |
-| ingress.annotations | object | `{}` | Annotations to add to the front Ingress resource. |
+| ingress.annotations | object | `{}` | Annotations to add to the front Ingress resource. For subpath routing, add the strip-prefix annotation for your ingress controller. nginx example:   nginx.ingress.kubernetes.io/rewrite-target: /$2   nginx.ingress.kubernetes.io/use-regex: "true" (and set ingress.paths.front to "/updatecli(/|$)(.*)") traefik example (requires a Middleware CR for stripprefix):   traefik.ingress.kubernetes.io/router.middlewares: <namespace>-<middlewarename>@kubernetescrd |
 | ingress.className | string | `""` | IngressClass name (Kubernetes >= 1.18). |
 | ingress.enabled | bool | `false` | Enable Ingress resource creation. |
 | ingress.hosts | list | `[{"host":"udash.local"}]` | Ingress host rules for the front. Traffic is forwarded according to ingress.paths. |
-| ingress.paths.front | string | `"/"` | Path prefix for udash-front on same-host routing. |
+| ingress.paths.front | string | `"/"` | Path prefix for udash-front on same-host routing. For subpath routing (e.g. "/updatecli"), also set front.appBasePath to the same value and add a strip-prefix annotation so nginx receives "/" instead of "/updatecli/...". |
 | ingress.paths.server | string | `"/api"` | Path prefix for udash-server on same-host routing (when ingress.server.host is empty). |
-| ingress.server.annotations | object | `{}` | Annotations to add to the server Ingress resource (e.g. rewrite-target when path differs from /api). |
+| ingress.server.annotations | object | `{}` | Annotations to add to the server Ingress resource. |
 | ingress.server.host | string | `""` | Optional separate hostname for the API server. When empty (default): udash-server is routed via ingress.paths.server on each front host. When set: a second Ingress is created for this host routing to udash-server. |
 | ingress.server.path | string | `"/api"` | Path prefix for udash-server on the separate server host. |
 | ingress.server.tls | list | `[]` | TLS configuration for the server Ingress. |
 | ingress.tls | list | `[]` | TLS configuration for the front Ingress. |
+| ingress.traefik.stripPrefix.enabled | bool | `false` | When true, create Traefik Middleware resources and wire their annotations automatically. Front: a StripPrefix Middleware strips ingress.paths.front (useful when it is not "/"). Server: a StripPrefix + AddPrefix Middleware chain rewrites ingress.server.path to ingress.paths.server ("/api") — only rendered when ingress.server.host is set. Example: external /updatecli/* → strip /updatecli → add /api → backend sees /api/*. Requires Traefik CRDs (traefik.io/v1alpha1) to be installed in the cluster. |
 | nameOverride | string | `""` | Override for the chart name used in resource names. |
 | nodeSelector | object | `{}` | Node selector for pod scheduling. |
 | podAnnotations | object | `{}` | Annotations to add to all pods. |

@@ -93,6 +93,13 @@ ingress:
   # -- IngressClass name (Kubernetes >= 1.18).
   className: ""
   # -- Annotations to add to the front Ingress resource.
+  # For subpath routing, add the strip-prefix annotation for your ingress controller.
+  # nginx example:
+  #   nginx.ingress.kubernetes.io/rewrite-target: /$2
+  #   nginx.ingress.kubernetes.io/use-regex: "true"
+  # (and set ingress.paths.front to "/updatecli(/|$)(.*)")
+  # traefik example (requires a Middleware CR for stripprefix):
+  #   traefik.ingress.kubernetes.io/router.middlewares: <namespace>-<middlewarename>@kubernetescrd
   annotations: {}
   # kubernetes.io/ingress.class: nginx
   # kubernetes.io/tls-acme: "true"
@@ -106,6 +113,8 @@ ingress:
   #      - chart-example.local
   paths:
     # -- Path prefix for udash-front on same-host routing.
+    # For subpath routing (e.g. "/updatecli"), also set front.appBasePath to the same value
+    # and add a strip-prefix annotation so nginx receives "/" instead of "/updatecli/...".
     front: "/"
     # -- Path prefix for udash-server on same-host routing (when ingress.server.host is empty).
     server: "/api"
@@ -116,17 +125,27 @@ ingress:
     host: ""
     # -- Path prefix for udash-server on the separate server host.
     path: "/api"
-    # -- Annotations to add to the server Ingress resource (e.g. rewrite-target when path differs from /api).
+    # -- Annotations to add to the server Ingress resource.
     annotations: {}
     # -- TLS configuration for the server Ingress.
     tls: []
+  traefik:
+    stripPrefix:
+      # -- When true, create Traefik Middleware resources and wire their annotations automatically.
+      # Front: a StripPrefix Middleware strips ingress.paths.front (useful when it is not "/").
+      # Server: a StripPrefix + AddPrefix Middleware chain rewrites ingress.server.path to
+      # ingress.paths.server ("/api") — only rendered when ingress.server.host is set.
+      # Example: external /updatecli/* → strip /updatecli → add /api → backend sees /api/*.
+      # Requires Traefik CRDs (traefik.io/v1alpha1) to be installed in the cluster.
+      enabled: false
 
 front:
   # -- API base URL used by the browser.
   # Use a relative path (e.g. "/api") for same-host routing.
   # Use an absolute URL (e.g. "https://api.domain.example/api") for split-domain routing.
   apiBaseUrl: "/api"
-  # -- Base path for the SPA. Change when the front is mounted at a sub-path (e.g. "/project").
+  # -- Base path for the SPA. Must match ingress.paths.front when using subpath routing.
+  # Example: set both ingress.paths.front and front.appBasePath to "/updatecli".
   appBasePath: "/"
 
 # -- Resource requests and limits for all containers. Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/

@@ -6,6 +6,11 @@
   {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
   {{- end }}
 {{- end }}
+{{- $annotations := .Values.ingress.annotations | deepCopy }}
+{{- if and .Values.ingress.traefik.stripPrefix.enabled (ne .Values.ingress.paths.front "/") }}
+  {{- $middlewareRef := printf "%s-%s@kubernetescrd" .Release.Namespace (include "udash.traefikStripFrontMiddlewareName" .) }}
+  {{- $_ := set $annotations "traefik.ingress.kubernetes.io/router.middlewares" $middlewareRef }}
+{{- end }}
 {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
 {{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
@@ -18,7 +23,7 @@ metadata:
   name: {{ $fullName }}
   labels:
     {{- include "udash.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -82,7 +87,13 @@ metadata:
   name: {{ $fullName }}-server
   labels:
     {{- include "udash.labels" . | nindent 4 }}
-  {{- with .Values.ingress.server.annotations }}
+  {{- $serverAnnotations := .Values.ingress.server.annotations | deepCopy }}
+  {{- if .Values.ingress.traefik.stripPrefix.enabled }}
+    {{- $stripRef := printf "%s-%s@kubernetescrd" .Release.Namespace (include "udash.traefikStripServerMiddlewareName" .) }}
+    {{- $addRef := printf "%s-%s@kubernetescrd" .Release.Namespace (include "udash.traefikAddServerMiddlewareName" .) }}
+    {{- $_ := set $serverAnnotations "traefik.ingress.kubernetes.io/router.middlewares" (printf "%s,%s" $stripRef $addRef) }}
+  {{- end }}
+  {{- with $serverAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
