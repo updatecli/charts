@@ -4,7 +4,8 @@
 
 Udash, the Updatecli DASHboard
 
-[Udash](https://github.com/updatecli/udash) is the Updatecli Dashboard — a web application that collects and displays Updatecli reports, giving your team a centralised view of software update activity across all your repositories.
+[Udash](https://github.com/updatecli/udash) is the Updatecli Dashboard, a web application that collects and displays Updatecli reports,
+giving your team a centralised view of software update activity across all your repositories.
 
 ## Architecture
 
