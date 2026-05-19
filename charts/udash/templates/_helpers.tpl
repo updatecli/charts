@@ -82,3 +82,31 @@ Create the name of the secrets use by udash agents
 {{- define "udash.secretName" -}}
 {{- default (include "udash.fullname" .) .Values.secrets.name }}
 {{- end }}
+
+{{/*
+Create the name of the CloudNative-PG cluster
+*/}}
+{{- define "udash.cnpgClusterName" -}}
+{{- printf "%s-db" (include "udash.fullname" .) }}
+{{- end }}
+
+{{/*
+Create the name of the Traefik StripPrefix Middleware for the front ingress
+*/}}
+{{- define "udash.traefikStripFrontMiddlewareName" -}}
+{{- printf "%s-strip-front" (include "udash.fullname" .) }}
+{{- end }}
+
+{{/*
+Create the name of the Traefik StripPrefix Middleware for the server ingress
+*/}}
+{{- define "udash.traefikStripServerMiddlewareName" -}}
+{{- printf "%s-strip-server" (include "udash.fullname" .) }}
+{{- end }}
+
+{{/*
+Create the name of the Traefik AddPrefix Middleware for the server ingress
+*/}}
+{{- define "udash.traefikAddServerMiddlewareName" -}}
+{{- printf "%s-add-server" (include "udash.fullname" .) }}
+{{- end }}

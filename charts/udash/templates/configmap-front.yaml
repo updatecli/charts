@@ -1,4 +1,3 @@
-{{ if not .Values.readonly }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,18 +12,6 @@ data:
   # Config.json is used by Updatecli to get login information
   config.json: |
     {
-        "OAUTH_DOMAIN": "{{ .Values.secrets.auth.stringdata.issuer }}",
-        "OAUTH_CLIENTID": "{{ .Values.secrets.auth.stringdata.clientid }}",
-        "OAUTH_AUDIENCE": "{{ .Values.secrets.auth.stringdata.audience }}"
+        "API_BASE_URL": "{{ .Values.front.apiBaseUrl }}",
+        "APP_BASE_PATH": "{{ .Values.front.appBasePath }}"
     }
-
-  # Config.js is used by the front application to get login information
-  config.js: |
-    const config = (() => {
-      return {
-        "OAUTH_DOMAIN": "{{ .Values.secrets.auth.stringdata.issuer }}",
-        "OAUTH_CLIENTID": "{{ .Values.secrets.auth.stringdata.clientid }}",
-        "OAUTH_AUDIENCE": "{{ .Values.secrets.auth.stringdata.audience }}"
-      };
-    })();
-{{ end }}

@@ -27,7 +27,7 @@ images:
     # -- Image pull policy for the udash-front image.
     pullPolicy: IfNotPresent
     # -- Overrides the image tag whose default is the chart appVersion.
-    tag: v0.17.0@sha256:9afa7d7b0d8a8bc70154b83fd3ded620714cd79443c9e17a72bc5d7611c22f28
+    tag: v0.19.0@sha256:b220b047a7536ab3bd77a5a312da10a051802a674385cd50ac7df00e652c7e5e
 
 # -- Secrets for pulling images from private registries.
 imagePullSecrets: []
@@ -63,8 +63,8 @@ secrets:
     # -- Annotations to add to the auth Secret.
     annotations: {}
     stringdata:
-      # -- Authentication mode. Supported values: `oauth`.
-      mode: oauth
+      # -- Authentication mode. Supported values: `oauth`, `none`.
+      mode: none
       # -- OAuth2 client ID.
       clientid: xxx.example
       # -- OAuth2 audience.
@@ -92,18 +92,61 @@ ingress:
   enabled: false
   # -- IngressClass name (Kubernetes >= 1.18).
   className: ""
-  # -- Annotations to add to the Ingress resource.
+  # -- Annotations to add to the front Ingress resource.
+  # For subpath routing, add the strip-prefix annotation for your ingress controller.
+  # nginx example:
+  #   nginx.ingress.kubernetes.io/rewrite-target: /$2
+  #   nginx.ingress.kubernetes.io/use-regex: "true"
+  # (and set ingress.paths.front to "/updatecli(/|$)(.*)")
+  # traefik example (requires a Middleware CR for stripprefix):
+  #   traefik.ingress.kubernetes.io/router.middlewares: <namespace>-<middlewarename>@kubernetescrd
   annotations: {}
   # kubernetes.io/ingress.class: nginx
   # kubernetes.io/tls-acme: "true"
-  # -- Ingress host rules. Traffic to `/` is forwarded to udash-front; traffic to `/api` is forwarded to udash-server.
+  # -- Ingress host rules for the front. Traffic is forwarded according to ingress.paths.
   hosts:
     - host: udash.local
-  # -- TLS configuration for the Ingress.
+  # -- TLS configuration for the front Ingress.
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
   #      - chart-example.local
+  paths:
+    # -- Path prefix for udash-front on same-host routing.
+    # For subpath routing (e.g. "/updatecli"), also set front.appBasePath to the same value
+    # and add a strip-prefix annotation so nginx receives "/" instead of "/updatecli/...".
+    front: "/"
+    # -- Path prefix for udash-server on same-host routing (when ingress.server.host is empty).
+    server: "/api"
+  server:
+    # -- Optional separate hostname for the API server.
+    # When empty (default): udash-server is routed via ingress.paths.server on each front host.
+    # When set: a second Ingress is created for this host routing to udash-server.
+    host: ""
+    # -- Path prefix for udash-server on the separate server host.
+    path: "/api"
+    # -- Annotations to add to the server Ingress resource.
+    annotations: {}
+    # -- TLS configuration for the server Ingress.
+    tls: []
+  traefik:
+    stripPrefix:
+      # -- When true, create Traefik Middleware resources and wire their annotations automatically.
+      # Front: a StripPrefix Middleware strips ingress.paths.front (useful when it is not "/").
+      # Server: a StripPrefix + AddPrefix Middleware chain rewrites ingress.server.path to
+      # ingress.paths.server ("/api") — only rendered when ingress.server.host is set.
+      # Example: external /updatecli/* → strip /updatecli → add /api → backend sees /api/*.
+      # Requires Traefik CRDs (traefik.io/v1alpha1) to be installed in the cluster.
+      enabled: false
+
+front:
+  # -- API base URL used by the browser.
+  # Use a relative path (e.g. "/api") for same-host routing.
+  # Use an absolute URL (e.g. "https://api.domain.example/api") for split-domain routing.
+  apiBaseUrl: "/api"
+  # -- Base path for the SPA. Must match ingress.paths.front when using subpath routing.
+  # Example: set both ingress.paths.front and front.appBasePath to "/updatecli".
+  appBasePath: "/"
 
 # -- Resource requests and limits for all containers. Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources: {}
@@ -140,3 +183,16 @@ service:
 
 # -- Run the udash-server in read-only / dry-run mode (no authentication required). Set to `false` to enable full OAuth2 authentication.
 readonly: true
+
+cnpg:
+  # -- Enable CloudNative-PG managed PostgreSQL cluster. When true, the chart provisions a CNPG Cluster and injects credentials automatically. Requires the CNPG operator to be installed separately.
+  enabled: true
+  # -- Number of PostgreSQL instances in the CNPG cluster.
+  instances: 1
+  # -- PostgreSQL database name created during cluster bootstrap.
+  database: udash
+  # -- PostgreSQL role/owner created during cluster bootstrap.
+  owner: udash
+  storage:
+    # -- Storage size for each PostgreSQL instance.
+    size: 1Gi

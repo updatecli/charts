@@ -1,0 +1,23 @@
+{{- if and .Values.ingress.enabled .Values.ingress.server.host .Values.ingress.traefik.stripPrefix.enabled }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "udash.traefikStripServerMiddlewareName" . }}
+  labels:
+    {{- include "udash.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.ingress.server.path | quote }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "udash.traefikAddServerMiddlewareName" . }}
+  labels:
+    {{- include "udash.labels" . | nindent 4 }}
+spec:
+  addPrefix:
+    prefix: {{ .Values.ingress.paths.server | quote }}
+{{- end }}

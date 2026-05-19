@@ -31,7 +31,7 @@ spec:
       containers:
         - name: {{ .Chart.Name }}-front
           env:
-            - name: VUE_APP_AUTH_ENABLED
+            - name: VITE_APP_AUTH_ENABLED
         {{- if .Values.readonly }}
               value: "false"
         {{- else }}
@@ -55,16 +55,10 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if not .Values.readonly }}
           volumeMounts:
             - name: "configjson"
               mountPath: "/usr/share/nginx/html/config.json"
               subPath: config.json
-            - name: "configjs"
-              mountPath: "/usr/share/nginx/html/config.js"
-              subPath: config.js
-          {{- end }}
-      {{- if not .Values.readonly}}
       volumes:
         - name: configjson
           configMap:
@@ -72,13 +66,6 @@ spec:
             items:
               - key: config.json
                 path: config.json
-        - name: configjs
-          configMap:
-            name: {{ include "udash.configMapName" . }}-front
-            items:
-              - key: config.js
-                path: config.js
-      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
