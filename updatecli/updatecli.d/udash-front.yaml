@@ -33,6 +33,7 @@ targets:
       file: values.yaml
       key: "$.images.front.tag"
       versionincrement: minor
+      appversion: false
 
 actions:
   default:
