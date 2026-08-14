@@ -10,7 +10,7 @@ images:
     # -- Image pull policy for the agent image.
     pullPolicy: IfNotPresent
     # -- Overrides the image tag whose default is the chart appVersion.
-    tag: v0.120.0@sha256:8826e470eed46c4a2371ef18b2a1b9deac19af055c9bd3c1016b05a22b0a9221
+    tag: v0.120.1@sha256:63d08532b91df649fbc585b8aa9434309531e25ac92069dd2a3be76db9cf399d
     # -- Command override for the agent container.
     command:
       - "updatecli"
