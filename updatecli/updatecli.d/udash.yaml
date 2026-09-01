@@ -33,7 +33,7 @@ targets:
       file: values.yaml
       key: "$.images.server.tag"
       versionincrement: minor
-      appversion: true
+      appversion: false
 
   udash-agent:
     name: update udash docker image tag to '{{ source "udash" }}'
@@ -46,6 +46,17 @@ targets:
       key: "$.images.agentrelay.tag"
       versionincrement: minor
       appversion: false
+
+  appVersion:
+    name: update chart appVersion to '{{ source "udash" }}'
+    kind: helmchart
+    scmid: default
+    sourceid: udash
+    spec:
+      name: charts/udash-agent
+      file: Chart.yaml
+      key: "$.appVersion"
+      versionincrement: minor
 
 actions:
   default:
