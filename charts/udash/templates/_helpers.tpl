@@ -91,6 +91,56 @@ Create the name of the CloudNative-PG cluster
 {{- end }}
 
 {{/*
+OIDC issuer as a full URL, for the frontend.
+The API server accepts a bare host and prepends https:// itself, but the SPA hands this
+value straight to the OIDC discovery endpoint, so it always needs a scheme.
+In zitadel mode the server is configured from auth.zitadel.domain and never reads
+auth.issuer, so fall back to it rather than leaving the SPA on the placeholder issuer.
+*/}}
+{{- define "udash.oauthDomain" -}}
+{{- $issuer := .Values.auth.issuer | default "" -}}
+{{- if and (eq .Values.auth.mode "zitadel") .Values.auth.zitadel.domain -}}
+{{- $issuer = .Values.auth.zitadel.domain -}}
+{{- end -}}
+{{- if or (hasPrefix "http://" $issuer) (hasPrefix "https://" $issuer) -}}
+{{- $issuer -}}
+{{- else -}}
+{{- printf "https://%s" $issuer -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Name of the Secret holding the Zitadel service account key.
+Prefers an existing Secret when one is referenced, otherwise the chart-managed one.
+*/}}
+{{- define "udash.zitadelKeySecretName" -}}
+{{- if .Values.auth.zitadel.keyFile.existingSecret -}}
+{{- .Values.auth.zitadel.keyFile.existingSecret -}}
+{{- else -}}
+{{- printf "%s-auth-zitadel" (include "udash.secretName" .) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Whether a Zitadel service account key is configured, inline or by reference.
+*/}}
+{{- define "udash.zitadelKeyEnabled" -}}
+{{- if and .Values.auth.enabled (eq .Values.auth.mode "zitadel") -}}
+{{- if or .Values.auth.zitadel.keyFile.content .Values.auth.zitadel.keyFile.existingSecret -}}
+true
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Directory the Zitadel key Secret is mounted into. Deliberately outside /etc/udash, which
+is already occupied by the server configuration ConfigMap volume.
+*/}}
+{{- define "udash.zitadelKeyMountPath" -}}
+/etc/udash-auth
+{{- end }}
+
+{{/*
 Create the name of the Traefik StripPrefix Middleware for the front ingress
 */}}
 {{- define "udash.traefikStripFrontMiddlewareName" -}}

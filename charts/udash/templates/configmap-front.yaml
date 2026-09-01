@@ -1,3 +1,22 @@
+{{- $config := dict
+  "AUTH_ENABLED" .Values.auth.enabled
+  "API_BASE_URL" .Values.front.apiBaseUrl
+  "APP_BASE_PATH" .Values.front.appBasePath
+  "MAX_HISTORY_DAYS" (int .Values.front.maxHistoryDays)
+}}
+{{- if .Values.auth.enabled }}
+{{- /*
+AUTH_VISIBILITY mirrors server.auth.visibility. The SPA defaults it to "private" where the
+API defaults to "public", so leaving it out would show a login wall in front of an API that
+answers anonymous reads. Requires udash-front >= v0.25.0; older images ignore the key.
+*/}}
+{{- $_ := set $config "AUTH_VISIBILITY" .Values.auth.visibility }}
+{{- $_ := set $config "OAUTH_DOMAIN" (include "udash.oauthDomain" .) }}
+{{- $_ := set $config "OAUTH_CLIENTID" .Values.auth.clientid }}
+{{- if .Values.auth.scope }}
+{{- $_ := set $config "OAUTH_SCOPE" .Values.auth.scope }}
+{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,9 +28,6 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 data:
-  # Config.json is used by Updatecli to get login information
+  # config.json is fetched by the SPA before its bundle loads and exposed as window.config.
   config.json: |
-    {
-        "API_BASE_URL": "{{ .Values.front.apiBaseUrl }}",
-        "APP_BASE_PATH": "{{ .Values.front.appBasePath }}"
-    }
+    {{- $config | toPrettyJson | nindent 4 }}

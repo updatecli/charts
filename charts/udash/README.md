@@ -1,6 +1,6 @@
 # udash
 
-![Version: 0.26.0](https://img.shields.io/badge/Version-0.26.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.1.0](https://img.shields.io/badge/AppVersion-0.1.0-informational?style=flat-square)
+![Version: 0.34.0](https://img.shields.io/badge/Version-0.34.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.1.0](https://img.shields.io/badge/AppVersion-0.1.0-informational?style=flat-square)
 
 Udash, the Updatecli DASHboard
 
@@ -66,7 +66,7 @@ By default the chart provisions a CNPG `Cluster` and injects credentials automat
 helm install udash updatecli/udash
 ```
 
-### Read-only mode with external PostgreSQL
+### With an external PostgreSQL
 
 Disable CNPG and supply your own connection URI:
 
@@ -76,19 +76,117 @@ helm install udash updatecli/udash \
   --set secrets.database.stringdata.uri="postgres://user:pass@postgres:5432/udash?sslmode=disable"
 ```
 
-### Full mode with OAuth2
+## Authentication
 
-Set `readonly: false` and supply your OAuth2 provider details:
+Authentication is off by default: the API accepts unauthenticated requests and the frontend
+shows no login UI. Enable it with the `auth` block, which configures both components at once.
 
 ```console
 helm install udash updatecli/udash \
-  --set readonly=false \
-  --set secrets.auth.stringdata.clientid="my-client-id" \
-  --set secrets.auth.stringdata.audience="https://udash.example/api" \
-  --set secrets.auth.stringdata.issuer="https://auth.example"
+  --set auth.enabled=true \
+  --set auth.issuer="https://auth.example" \
+  --set auth.clientid="my-client-id" \
+  --set "auth.audience[0]=https://udash.example/api"
 ```
 
-When using an external PostgreSQL in full mode, also set `cnpg.enabled=false` and `secrets.database.stringdata.uri`.
+### Registering the application with your provider
+
+Register `udash-front` as a **User Agent / SPA** client using **PKCE**. The redirect URI is
+derived from the browser origin and `front.appBasePath` rather than configured directly, so
+register `https://<your front host><front.appBasePath>` as **both** the allowed redirect URI
+and the post-logout redirect URI. `helm install` prints the exact URL for your values.
+
+### `auth.issuer`
+
+Accepted with or without a scheme — `https://` is assumed when omitted. It must match the
+`iss` claim your provider puts in its tokens **exactly**, including any trailing slash: Auth0
+issues one, Zitadel and Keycloak do not. A mismatch rejects every token.
+
+### `auth.visibility`
+
+| Value | Effect |
+|---|---|
+| `public` (default) | Read endpoints stay open to anyone; writes require a valid token. |
+| `private` | Every API endpoint requires a valid token. |
+
+The chart writes this to both sides — `server.auth.visibility` for the API and
+`AUTH_VISIBILITY` for the SPA. They must agree, and the frontend defaults the key to
+`private` where the API defaults to `public`, so letting the chart set both is the point.
+`AUTH_VISIBILITY` needs `udash-front` >= `v0.25.0`; older images ignore it and always ask
+for a login before showing data.
+
+### Roles and permissions
+
+Udash has three permissions, in increasing order: `viewer`, `publisher`, `admin`. Publishing
+reports requires `publisher`. The server maps identity provider roles onto them through
+`auth.roles`:
+
+```yaml
+auth:
+  roles:
+    claim: realm_access.roles          # where your provider puts the roles
+    mapping:
+      admin: ["udash.admin"]
+      publisher: ["ci-bot", "udash.publisher"]
+    default: viewer                    # nobody matched -> least privilege
+```
+
+> **Set `auth.roles.claim` in `oidc` mode.** Only `zitadel` mode infers it. Left empty, the
+> server reads no roles at all, every authenticated identity falls back to
+> `auth.roles.default` (`viewer`), and **nobody can publish**. The server logs a warning
+> saying so at startup.
+
+`auth.roles.mapping` is keyed by Udash permission, not by provider role. Left empty it
+defaults to `udash.admin` / `udash.publisher` / `udash.viewer`.
+
+### API tokens
+
+With authentication enabled the API issues personal access tokens (prefix `udash_pat_`) that
+`updatecli` can use to publish. `auth.roles.resolver` decides what a token is allowed to do:
+`snapshot` (the default) freezes the permission its creator had at issue time, while
+`zitadel` re-reads the creator's current grants on use and therefore requires
+`auth.mode: zitadel`. `auth.roles.cacheTTL` bounds how long a resolved permission is reused.
+
+### `auth.scope`
+
+Left empty, the frontend requests `openid profile email offline_access` (`offline_access`
+enables silent token renewal). Zitadel additionally requires the project audience scope
+`urn:zitadel:iam:org:project:id:<PROJECT_ID>:aud`, or the API rejects the token:
+
+```console
+--set auth.scope="openid profile email offline_access urn:zitadel:iam:org:project:id:123:aud"
+```
+
+### Zitadel mode
+
+`auth.mode=zitadel` uses Zitadel's own authorization SDK instead of generic JWT validation,
+and needs a service account key. Provide it inline, or reference a Secret you manage yourself:
+
+```yaml
+auth:
+  enabled: true
+  mode: zitadel
+  zitadel:
+    domain: my-instance.region.zitadel.cloud
+    keyFile:
+      existingSecret: my-zitadel-key
+      key: key.json
+  roles:
+    mapping:
+      admin: ["udash.admin"]
+```
+
+Access is granted through `auth.roles` rather than a single required role. In this mode the
+chart also points the SPA at `auth.zitadel.domain`, so `auth.issuer` is not needed.
+
+The key is mounted into `udash-server` at `/etc/udash-auth/`, deliberately outside
+`/etc/udash/`, which the configuration ConfigMap already occupies.
+
+> **Version requirements.** Runtime auth configuration reached `udash-front` in `v0.23.0`;
+> `AUTH_VISIBILITY` in `v0.25.0`. Releases up to `v0.22.0` had authentication compiled into the
+> bundle at build time, so they show no login UI regardless of these values. On the API side
+> the `oidc` mode and the roles model need `udash` `v0.17.1`. The chart pins images that
+> satisfy all of this.
 
 ### With Ingress (same host, default paths)
 
@@ -224,6 +322,43 @@ The chart renders:
 helm uninstall udash
 ```
 
+## Upgrading
+
+### To 0.34.0
+
+Authentication was reworked into a single top-level `auth` block, and the server-side schema
+was renamed to follow udash `v0.17.1`:
+
+| Removed | Replacement |
+|---|---|
+| `readonly` | `auth.enabled` (inverted: `readonly: true` is the default `auth.enabled: false`) |
+| `secrets.auth.stringdata.mode` | `auth.mode` |
+| `secrets.auth.stringdata.issuer` | `auth.issuer` |
+| `secrets.auth.stringdata.clientid` | `auth.clientid` |
+| `secrets.auth.stringdata.audience` | `auth.audience` (now a **list**) |
+| `auth.mode: oauth` | `auth.mode: oidc` |
+| `auth.zitadel.role` | `auth.roles.mapping` |
+
+**`auth.mode: oauth` is now rejected by the chart**, because udash `v0.17.1` renamed the mode
+to `oidc` and refuses to start on the old value rather than silently serving an open API. The
+chart fails the render with a message pointing at the rename.
+
+New in this release: `auth.roles.*` (see [Roles and permissions](#roles-and-permissions)) and
+`AUTH_VISIBILITY` for the SPA. Both images are bumped — udash `v0.17.1` and udash-front
+`v0.25.0` — which is the minimum for the above.
+
+Upgrading the server to `v0.17.1` runs two new migrations on first boot
+(`000012_create_api_tokens`, `000013_alter_pipelineReports_attribution`).
+
+The `<release>-auth` Secret is no longer created. It was referenced by no workload, and none
+of its contents were secret — a public SPA publishes its client ID, issuer and audience to
+every browser that loads it. Only the Zitadel service account key gets a Secret now.
+
+If you never set `readonly: false`, no action is needed. If you did, note that the previous
+release did not actually apply your OAuth settings: they were written as flat keys the server
+never read, so `auth` was effectively enabled with an empty issuer. Move them to the new block
+and authentication will work for the first time.
+
 ## Configuration
 
 ## Values
@@ -231,6 +366,22 @@ helm uninstall udash
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity rules for pod scheduling. |
+| auth.audience | list | `["https://udash.example/api"]` | OAuth2 audiences the API server accepts in a token. |
+| auth.clientid | string | `"xxx.example"` | OAuth2 client ID of the frontend SPA application. Register it with the provider as a User Agent / SPA client using PKCE. |
+| auth.enabled | bool | `false` | Enable authentication for both the udash-server API and the udash-front SPA. When false, the server requires no authentication and the frontend shows no login UI. |
+| auth.issuer | string | `"https://oauth.example"` | OIDC issuer, with or without a scheme (`https://` is assumed when omitted). Used by the server to validate tokens and by the frontend for OIDC discovery. It must match the `iss` claim your provider issues exactly, including any trailing slash (Auth0 issues one, Zitadel and Keycloak do not). |
+| auth.mode | string | `"oidc"` | Authentication mode. Supported values: `oidc`, `zitadel`. Renamed from `oauth` in udash v0.17.1; the old value is now a fatal server error. |
+| auth.roles.cacheTTL | string | `""` | How long a resolved permission is reused before being looked up again, e.g. `60s`. Empty uses the server default (60s). |
+| auth.roles.claim | string | `""` | Token claim holding the identity provider roles. Providers disagree on both the name and the shape: Zitadel uses an object keyed by role name, Keycloak and Auth0 an array of strings; both are accepted. Only `zitadel` mode infers it (`urn:zitadel:iam:org:project:roles`). In `oidc` mode leaving this empty means no roles are read at all and every authenticated identity falls back to `auth.roles.default` (`viewer`), which cannot publish reports -- so set it if anyone needs to write. Examples: `realm_access.roles` (Keycloak), `https://your.app/roles` (Auth0). |
+| auth.roles.default | string | `""` | Permission granted to an authenticated identity matching no role at all. One of `viewer`, `publisher`, `admin`. Empty uses the server default (`viewer`). |
+| auth.roles.mapping | object | `{}` | Identity provider roles granting each Udash permission, keyed by permission. Empty uses the server default: `admin: [udash.admin]`, `publisher: [udash.publisher]`, `viewer: [udash.viewer]`. Example:   mapping:     admin: ["udash.admin"]     publisher: ["ci-bot", "udash.publisher"] |
+| auth.roles.resolver | string | `""` | How the permission behind an Udash API token is resolved. `snapshot` trusts the permission recorded when the token was created; `zitadel` re-reads the current grants and requires `auth.mode: zitadel`. Empty uses the server default. |
+| auth.scope | string | `""` | OAuth2 scopes requested by the frontend. Leave empty to use the application default (`openid profile email offline_access`). Zitadel additionally requires `urn:zitadel:iam:org:project:id:<PROJECT_ID>:aud` so the token is accepted by the API. |
+| auth.visibility | string | `"public"` | API visibility. `public` leaves read endpoints open to anyone and requires authentication only for writes. `private` requires authentication everywhere. |
+| auth.zitadel.domain | string | `""` | Zitadel domain, e.g. `xxx.region.zitadel.cloud`. Only used when mode is `zitadel`. |
+| auth.zitadel.keyFile.content | string | `""` | Inline Zitadel service account key JSON. When set, the chart creates a Secret and mounts it into the udash-server. |
+| auth.zitadel.keyFile.existingSecret | string | `""` | Name of an existing Secret holding the service account key, used instead of inlining it above. |
+| auth.zitadel.keyFile.key | string | `"key.json"` | Key within the Secret that holds the service account key JSON. |
 | autoscaling.enabled | bool | `false` | Enable Horizontal Pod Autoscaler. |
 | autoscaling.maxReplicas | int | `100` | Maximum number of replicas. |
 | autoscaling.minReplicas | int | `1` | Minimum number of replicas. |
@@ -244,16 +395,17 @@ helm uninstall udash
 | configMap.name | string | `""` | The name of the ConfigMap used to store server/front configuration. If not set, a name is generated using the fullname template. |
 | front.apiBaseUrl | string | `"/api"` | API base URL used by the browser. Use a relative path (e.g. "/api") for same-host routing. Use an absolute URL (e.g. "https://api.domain.example/api") for split-domain routing. |
 | front.appBasePath | string | `"/"` | Base path for the SPA. Must match ingress.paths.front when using subpath routing. Example: set both ingress.paths.front and front.appBasePath to "/updatecli". |
+| front.maxHistoryDays | int | `30` | How many days of history the UI may query. Capped at 366 by the API server. |
 | fullnameOverride | string | `""` | Full override for the chart name used in resource names. |
 | imagePullSecrets | list | `[]` | Secrets for pulling images from private registries. |
 | images.front.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the udash-front image. |
 | images.front.repository | string | `"ghcr.io/updatecli/udash-front"` | Repository for the udash-front image. |
-| images.front.tag | string | `"v0.19.0@sha256:b220b047a7536ab3bd77a5a312da10a051802a674385cd50ac7df00e652c7e5e"` | Overrides the image tag whose default is the chart appVersion. |
+| images.front.tag | string | `"v0.25.0@sha256:1b4977cc534b643a61fadfd8da27ef771e95b55af1ada038e1086a165205552d"` | Overrides the image tag whose default is the chart appVersion. |
 | images.server.args | list | `["server","start"]` | Arguments for the udash-server container. |
 | images.server.command | list | `["udash"]` | Command override for the udash-server container. |
 | images.server.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the udash-server image. |
 | images.server.repository | string | `"ghcr.io/updatecli/udash"` | Repository for the udash-server image. |
-| images.server.tag | string | `"v0.14.0@sha256:a52edcb9535d8c392a2e592bf7c3b4fc0c14ecd4b1360aa96639145038b5da75"` | Overrides the image tag whose default is the chart appVersion. |
+| images.server.tag | string | `"v0.17.1@sha256:76450ac9e81edfd705b02dc66bd66b226e6620a3cb4bd0488c4dd9a461266e4c"` | Overrides the image tag whose default is the chart appVersion. |
 | ingress.annotations | object | `{}` | Annotations to add to the front Ingress resource. For subpath routing, add the strip-prefix annotation for your ingress controller. nginx example:   nginx.ingress.kubernetes.io/rewrite-target: /$2   nginx.ingress.kubernetes.io/use-regex: "true" (and set ingress.paths.front to "/updatecli(/|$)(.*)") traefik example (requires a Middleware CR for stripprefix):   traefik.ingress.kubernetes.io/router.middlewares: <namespace>-<middlewarename>@kubernetescrd |
 | ingress.className | string | `""` | IngressClass name (Kubernetes >= 1.18). |
 | ingress.enabled | bool | `false` | Enable Ingress resource creation. |
@@ -270,14 +422,8 @@ helm uninstall udash
 | nodeSelector | object | `{}` | Node selector for pod scheduling. |
 | podAnnotations | object | `{}` | Annotations to add to all pods. |
 | podSecurityContext | object | `{}` | Pod-level security context. |
-| readonly | bool | `true` | Run the udash-server in read-only / dry-run mode (no authentication required). Set to `false` to enable full OAuth2 authentication. |
 | replicaCount | int | `1` | Number of replicas for the udash-server and udash-front deployments. |
 | resources | object | `{}` | Resource requests and limits for all containers. Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/ |
-| secrets.auth.annotations | object | `{}` | Annotations to add to the auth Secret. |
-| secrets.auth.stringdata.audience | string | `"https://udash.example/api"` | OAuth2 audience. |
-| secrets.auth.stringdata.clientid | string | `"xxx.example"` | OAuth2 client ID. |
-| secrets.auth.stringdata.issuer | string | `"https://oauth.example"` | OAuth2 issuer URL. |
-| secrets.auth.stringdata.mode | string | `"none"` | Authentication mode. Supported values: `oauth`, `none`. |
 | secrets.database.annotations | object | `{}` | Annotations to add to the database Secret. |
 | secrets.database.stringdata.uri | string | `"postgres://postgres:5432/udash?sslmode=disable"` | PostgreSQL connection URI used by the udash-server. |
 | secrets.name | string | `""` | The name of the Secret used to store credentials. If not set, a name is generated using the fullname template. |

@@ -1,3 +1,36 @@
+{{- if .Values.auth.enabled }}
+{{- if eq .Values.auth.mode "oauth" }}
+{{- fail "udash: auth.mode \"oauth\" was renamed to \"oidc\" in udash v0.17.1, and the server now refuses to start on the old value. Set auth.mode to \"oidc\"." }}
+{{- end }}
+{{- if not (has .Values.auth.mode (list "oidc" "zitadel")) }}
+{{- fail (printf "udash: auth.mode must be one of \"oidc\" or \"zitadel\", got %q." .Values.auth.mode) }}
+{{- end }}
+{{- if not (has .Values.auth.visibility (list "public" "private")) }}
+{{- fail (printf "udash: auth.visibility must be one of \"public\" or \"private\", got %q." .Values.auth.visibility) }}
+{{- end }}
+{{- if and (eq .Values.auth.mode "oidc") (not .Values.auth.issuer) }}
+{{- fail "udash: auth.issuer is required when auth.mode is \"oidc\"." }}
+{{- end }}
+{{- if and (eq .Values.auth.mode "zitadel") (not .Values.auth.zitadel.domain) }}
+{{- fail "udash: auth.zitadel.domain is required when auth.mode is \"zitadel\"." }}
+{{- end }}
+{{- if and .Values.auth.roles.default (not (has .Values.auth.roles.default (list "viewer" "publisher" "admin"))) }}
+{{- fail (printf "udash: auth.roles.default must be one of \"viewer\", \"publisher\" or \"admin\", got %q." .Values.auth.roles.default) }}
+{{- end }}
+{{- if .Values.auth.roles.resolver }}
+{{- if not (has .Values.auth.roles.resolver (list "snapshot" "zitadel")) }}
+{{- fail (printf "udash: auth.roles.resolver must be one of \"snapshot\" or \"zitadel\", got %q." .Values.auth.roles.resolver) }}
+{{- end }}
+{{- if and (eq .Values.auth.roles.resolver "zitadel") (ne .Values.auth.mode "zitadel") }}
+{{- fail "udash: auth.roles.resolver \"zitadel\" requires auth.mode \"zitadel\"." }}
+{{- end }}
+{{- end }}
+{{- range $permission := keys .Values.auth.roles.mapping }}
+{{- if not (has $permission (list "viewer" "publisher" "admin")) }}
+{{- fail (printf "udash: auth.roles.mapping is keyed by Udash permission; %q is not one of \"viewer\", \"publisher\", \"admin\"." $permission) }}
+{{- end }}
+{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,28 +42,48 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 data:
-
-{{- if .Values.readonly }}
+  # Keys match the udash server configuration structure. Viper is case-insensitive, so
+  # `keyfile` and `cachettl` below bind to the KeyFile and CacheTTL fields.
   config.yaml: |
-    server:
-      dryrun: true
-    {{- if not .Values.cnpg.enabled }}
-    database:
-      uri: "{{ .Values.secrets.database.stringdata.uri }}"
-    {{- end }}
-{{- else }}
-  config.yaml: |
+    {{- if .Values.auth.enabled }}
     server:
       auth:
-        mode: "{{ .Values.secrets.auth.stringdata.mode }}"
-        {{- if and ( eq .Values.secrets.auth.stringdata.mode "oauth" ) }}
-        issuer: "{{ .Values.secrets.auth.stringdata.issuer }}"
-        audience: "{{ .Values.secrets.auth.stringdata.audience }}"
-        clientid: "{{ .Values.secrets.auth.stringdata.clientid }}"
+        mode: {{ .Values.auth.mode | quote }}
+        visibility: {{ .Values.auth.visibility | quote }}
+        {{- if eq .Values.auth.mode "oidc" }}
+        oidc:
+          issuer: {{ .Values.auth.issuer | quote }}
+          audience:
+            {{- toYaml .Values.auth.audience | nindent 12 }}
+        {{- else if eq .Values.auth.mode "zitadel" }}
+        zitadel:
+          domain: {{ .Values.auth.zitadel.domain | quote }}
+          {{- if include "udash.zitadelKeyEnabled" . }}
+          keyfile: {{ printf "%s/%s" (include "udash.zitadelKeyMountPath" .) .Values.auth.zitadel.keyFile.key | quote }}
+          {{- end }}
         {{- end }}
+        {{- /* Emitted only when set, so an untouched chart inherits the server defaults. */}}
+        {{- if or .Values.auth.roles.claim .Values.auth.roles.mapping .Values.auth.roles.default .Values.auth.roles.resolver .Values.auth.roles.cacheTTL }}
+        roles:
+          {{- with .Values.auth.roles.claim }}
+          claim: {{ . | quote }}
+          {{- end }}
+          {{- with .Values.auth.roles.mapping }}
+          mapping:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.auth.roles.default }}
+          default: {{ . | quote }}
+          {{- end }}
+          {{- with .Values.auth.roles.resolver }}
+          resolver: {{ . | quote }}
+          {{- end }}
+          {{- with .Values.auth.roles.cacheTTL }}
+          cachettl: {{ . | quote }}
+          {{- end }}
+        {{- end }}
+    {{- end }}
     {{- if not .Values.cnpg.enabled }}
     database:
-      uri: "{{ .Values.secrets.database.stringdata.uri }}"
+      uri: {{ .Values.secrets.database.stringdata.uri | quote }}
     {{- end }}
-{{- end }}
-
