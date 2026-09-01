@@ -110,6 +110,19 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
+persistence:
+  # -- Enable a PersistentVolumeClaim to persist the Updatecli tmp folder (`/tmp/updatecli`) across executions. One PVC is created per agent CronJob and per Argo workflow entry.
+  enabled: false
+  # -- Storage class name for the PersistentVolumeClaim. Leave empty to use the cluster default.
+  storageClassName: ""
+  # -- Access modes for the PersistentVolumeClaim.
+  accessModes:
+    - ReadWriteOnce
+  # -- Size of the PersistentVolumeClaim.
+  size: 1Gi
+  # -- Annotations to add to the PersistentVolumeClaim.
+  annotations: {}
+
 # -- Node selector for pod scheduling.
 nodeSelector: {}
 # -- Tolerations for pod scheduling.
