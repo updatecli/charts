@@ -13,7 +13,7 @@ images:
     # -- Image pull policy for the udash-server image.
     pullPolicy: IfNotPresent
     # -- Overrides the image tag whose default is the chart appVersion.
-    tag: v0.16.0@sha256:d41655dd7bfc48bd019640f9939bd3633d38d4b0e2f12a0d4c072e3755ce5d79
+    tag: v0.17.1@sha256:76450ac9e81edfd705b02dc66bd66b226e6620a3cb4bd0488c4dd9a461266e4c
     # -- Command override for the udash-server container.
     command:
       - "udash"
@@ -27,7 +27,7 @@ images:
     # -- Image pull policy for the udash-front image.
     pullPolicy: IfNotPresent
     # -- Overrides the image tag whose default is the chart appVersion.
-    tag: v0.23.1@sha256:4691d0d5481085ec66ecd255f371486908017e7a7a381a6ef6706dd35dcfb45e
+    tag: v0.25.0@sha256:1b4977cc534b643a61fadfd8da27ef771e95b55af1ada038e1086a165205552d
 
 # -- Secrets for pulling images from private registries.
 imagePullSecrets: []
@@ -59,18 +59,6 @@ secrets:
     stringdata:
       # -- PostgreSQL connection URI used by the udash-server.
       uri: postgres://postgres:5432/udash?sslmode=disable
-  auth:
-    # -- Annotations to add to the auth Secret.
-    annotations: {}
-    stringdata:
-      # -- Authentication mode. Supported values: `oauth`, `none`.
-      mode: none
-      # -- OAuth2 client ID.
-      clientid: xxx.example
-      # -- OAuth2 audience.
-      audience: https://udash.example/api
-      # -- OAuth2 issuer URL.
-      issuer: https://oauth.example
 
 # -- Annotations to add to all pods.
 podAnnotations: {}
@@ -147,6 +135,8 @@ front:
   # -- Base path for the SPA. Must match ingress.paths.front when using subpath routing.
   # Example: set both ingress.paths.front and front.appBasePath to "/updatecli".
   appBasePath: "/"
+  # -- How many days of history the UI may query. Capped at 366 by the API server.
+  maxHistoryDays: 30
 
 # -- Resource requests and limits for all containers. Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources: {}
@@ -181,8 +171,71 @@ service:
   # -- Service port.
   port: 80
 
-# -- Run the udash-server in read-only / dry-run mode (no authentication required). Set to `false` to enable full OAuth2 authentication.
-readonly: true
+auth:
+  # -- Enable authentication for both the udash-server API and the udash-front SPA.
+  # When false, the server requires no authentication and the frontend shows no login UI.
+  enabled: false
+  # -- Authentication mode. Supported values: `oidc`, `zitadel`.
+  # Renamed from `oauth` in udash v0.17.1; the old value is now a fatal server error.
+  mode: oidc
+  # -- API visibility. `public` leaves read endpoints open to anyone and requires
+  # authentication only for writes. `private` requires authentication everywhere.
+  visibility: public
+  # -- OIDC issuer, with or without a scheme (`https://` is assumed when omitted).
+  # Used by the server to validate tokens and by the frontend for OIDC discovery.
+  # It must match the `iss` claim your provider issues exactly, including any
+  # trailing slash (Auth0 issues one, Zitadel and Keycloak do not).
+  issuer: https://oauth.example
+  # -- OAuth2 client ID of the frontend SPA application. Register it with the provider
+  # as a User Agent / SPA client using PKCE.
+  clientid: xxx.example
+  # -- OAuth2 audiences the API server accepts in a token.
+  audience:
+    - https://udash.example/api
+  # -- OAuth2 scopes requested by the frontend. Leave empty to use the application
+  # default (`openid profile email offline_access`). Zitadel additionally requires
+  # `urn:zitadel:iam:org:project:id:<PROJECT_ID>:aud` so the token is accepted by the API.
+  scope: ""
+  zitadel:
+    # -- Zitadel domain, e.g. `xxx.region.zitadel.cloud`. Only used when mode is `zitadel`.
+    domain: ""
+    keyFile:
+      # -- Inline Zitadel service account key JSON. When set, the chart creates a Secret
+      # and mounts it into the udash-server.
+      content: ""
+      # -- Name of an existing Secret holding the service account key, used instead of
+      # inlining it above.
+      existingSecret: ""
+      # -- Key within the Secret that holds the service account key JSON.
+      key: key.json
+  roles:
+    # -- Token claim holding the identity provider roles. Providers disagree on both the
+    # name and the shape: Zitadel uses an object keyed by role name, Keycloak and Auth0 an
+    # array of strings; both are accepted. Only `zitadel` mode infers it
+    # (`urn:zitadel:iam:org:project:roles`).
+    # In `oidc` mode leaving this empty means no roles are read at all and every
+    # authenticated identity falls back to `auth.roles.default` (`viewer`), which cannot
+    # publish reports -- so set it if anyone needs to write.
+    # Examples: `realm_access.roles` (Keycloak), `https://your.app/roles` (Auth0).
+    claim: ""
+    # -- Identity provider roles granting each Udash permission, keyed by permission.
+    # Empty uses the server default: `admin: [udash.admin]`, `publisher: [udash.publisher]`,
+    # `viewer: [udash.viewer]`.
+    # Example:
+    #   mapping:
+    #     admin: ["udash.admin"]
+    #     publisher: ["ci-bot", "udash.publisher"]
+    mapping: {}
+    # -- Permission granted to an authenticated identity matching no role at all.
+    # One of `viewer`, `publisher`, `admin`. Empty uses the server default (`viewer`).
+    default: ""
+    # -- How the permission behind an Udash API token is resolved. `snapshot` trusts the
+    # permission recorded when the token was created; `zitadel` re-reads the current grants
+    # and requires `auth.mode: zitadel`. Empty uses the server default.
+    resolver: ""
+    # -- How long a resolved permission is reused before being looked up again, e.g. `60s`.
+    # Empty uses the server default (60s).
+    cacheTTL: ""
 
 cnpg:
   # -- Enable CloudNative-PG managed PostgreSQL cluster. When true, the chart provisions a CNPG Cluster and injects credentials automatically. Requires the CNPG operator to be installed separately.

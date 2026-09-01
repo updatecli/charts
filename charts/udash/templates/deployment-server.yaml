@@ -15,6 +15,11 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap-server.yaml") . | sha256sum }}
+        {{- if include "udash.zitadelKeyEnabled" . }}
+        # The server reads the key file once at startup, and viper's config watcher does not
+        # re-unmarshal, so a rotated key only takes effect on a restart.
+        checksum/auth: {{ include (print $.Template.BasePath "/secrets-auth-zitadel.yaml") . | sha256sum }}
+        {{- end }}
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -71,10 +76,23 @@ spec:
           volumeMounts:
             - name: "config"
               mountPath: "/etc/udash/"
+            {{- if include "udash.zitadelKeyEnabled" . }}
+            - name: "auth-zitadel"
+              mountPath: {{ include "udash.zitadelKeyMountPath" . | quote }}
+              readOnly: true
+            {{- end }}
       volumes:
         - name: config
           configMap:
             name: {{ include "udash.configMapName" . }}-server
+        {{- if include "udash.zitadelKeyEnabled" . }}
+        - name: auth-zitadel
+          secret:
+            secretName: {{ include "udash.zitadelKeySecretName" . }}
+            items:
+              - key: {{ .Values.auth.zitadel.keyFile.key }}
+                path: {{ .Values.auth.zitadel.keyFile.key }}
+        {{- end }}
 
       {{- with .Values.nodeSelector }}
       nodeSelector:

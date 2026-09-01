@@ -1,9 +1,7 @@
 1. Get the application URL by running these commands:
 {{- if .Values.ingress.enabled }}
 {{- range $host := .Values.ingress.hosts }}
-  {{- range .paths }}
-  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
-  {{- end }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ $.Values.ingress.paths.front }}
 {{- end }}
 {{- else if contains "NodePort" .Values.service.type }}
   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "udash.fullname" . }})
@@ -19,4 +17,66 @@
   export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
   echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+
+{{- if .Values.auth.enabled }}
+
+2. Authentication is ENABLED in {{ .Values.auth.mode }} mode ({{ .Values.auth.visibility }} API visibility).
+{{- if eq .Values.auth.visibility "public" }}
+   Read endpoints stay open to anyone; writes require a valid token.
+{{- else }}
+   Every API endpoint requires a valid token.
+{{- end }}
+
+   The frontend derives its OIDC redirect URI from the browser origin and
+   front.appBasePath -- it is not configurable directly. Register this URL with your
+   identity provider as BOTH an allowed redirect URI and post-logout redirect URI:
+
+{{- $basePath := .Values.front.appBasePath | default "/" }}
+{{- $suffix := ternary "/" (printf "/%s/" (trim (trimAll "/" $basePath))) (eq (trimAll "/" $basePath) "") }}
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+     http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ $suffix }}
+{{- end }}
+{{- else }}
+     <your udash-front URL>{{ $suffix }}
+{{- end }}
+
+   The client must be registered as a User Agent / SPA application using PKCE.
+{{- if eq .Values.auth.mode "oidc" }}
+
+   The issuer below must match the "iss" claim your provider puts in its tokens
+   EXACTLY, including any trailing slash (Auth0 issues one, Zitadel and Keycloak do not):
+
+     {{ .Values.auth.issuer }}
+{{- end }}
+{{- if and (eq .Values.auth.mode "zitadel") (not (include "udash.zitadelKeyEnabled" .)) }}
+
+   WARNING: mode is "zitadel" but no service account key is configured. Set either
+   auth.zitadel.keyFile.content or auth.zitadel.keyFile.existingSecret, or the server
+   will fail to start.
+{{- end }}
+{{- if not .Values.auth.scope }}
+
+   NOTE: auth.scope is empty, so the frontend requests the default
+   "openid profile email offline_access". Zitadel additionally requires
+   "urn:zitadel:iam:org:project:id:<PROJECT_ID>:aud" for the API to accept the token.
+{{- end }}
+{{- if and (eq .Values.auth.mode "oidc") (not .Values.auth.roles.claim) }}
+
+   WARNING: auth.roles.claim is empty and mode is "oidc", so the server reads no roles from
+   your tokens and EVERY authenticated identity gets the "{{ .Values.auth.roles.default | default "viewer" }}" permission.
+   Publishing reports needs "publisher", so with the default nobody can write. Set
+   auth.roles.claim to the claim your provider puts the roles in, for example
+   "urn:zitadel:iam:org:project:roles" (Zitadel), "realm_access.roles" (Keycloak), or a
+   custom namespaced claim (Auth0). Only "zitadel" mode infers it for you.
+{{- else if not .Values.auth.roles.mapping }}
+
+   NOTE: auth.roles.mapping is empty, so the server default applies -- the identity
+   provider roles "udash.admin", "udash.publisher" and "udash.viewer" grant the matching
+   permission, and anyone authenticated without one of them gets "{{ .Values.auth.roles.default | default "viewer" }}".
+{{- end }}
+
+   API tokens (prefix "udash_pat_") can now be issued from the frontend's token page.
+   They exist only while authentication is enabled.
 {{- end }}

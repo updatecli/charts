@@ -30,13 +30,6 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}-front
-          env:
-            - name: VITE_APP_AUTH_ENABLED
-        {{- if .Values.readonly }}
-              value: "false"
-        {{- else }}
-              value: "true"
-        {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.images.front.repository }}:{{ .Values.images.front.tag | default .Chart.AppVersion }}"
