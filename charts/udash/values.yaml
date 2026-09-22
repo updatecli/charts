@@ -13,7 +13,7 @@ images:
     # -- Image pull policy for the udash-server image.
     pullPolicy: IfNotPresent
     # -- Overrides the image tag whose default is the chart appVersion.
-    tag: v0.18.0@sha256:3648bd84c605948cf9ef25f7ad2e516923bdf4dec00eaa4fdef4c67544baf0eb
+    tag: v0.18.2@sha256:899c2e3a7bf8b4aea588ba4ca398ce4ca1626479ab96881aa69ad6a18964fae1
     # -- Command override for the udash-server container.
     command:
       - "udash"
