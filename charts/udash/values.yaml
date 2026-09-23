@@ -27,7 +27,7 @@ images:
     # -- Image pull policy for the udash-front image.
     pullPolicy: IfNotPresent
     # -- Overrides the image tag whose default is the chart appVersion.
-    tag: v0.25.0@sha256:1b4977cc534b643a61fadfd8da27ef771e95b55af1ada038e1086a165205552d
+    tag: v0.26.0@sha256:21d5c66f6872907f5a83da1a07bde6fa1b46bd74d7e56898b52f0a6b5a8e7654
 
 # -- Secrets for pulling images from private registries.
 imagePullSecrets: []
