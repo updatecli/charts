@@ -433,6 +433,18 @@ entries:
   udash-agent:
   - apiVersion: v2
     appVersion: v0.18.2
+    created: "2026-09-26T19:35:24.444271506Z"
+    description: Udash Agent, is the Updatecli DASHboard agent running Updatecli to
+      check your repositories updates.
+    digest: e0a5408e9488dc70b8392906ae836a5f8c6a79dbd5bf1de06559de384d641930
+    icon: https://www.updatecli.io/images/updatecli_transparent.png
+    name: udash-agent
+    type: application
+    urls:
+    - https://github.com/updatecli/charts/releases/download/udash-agent-0.40.0/udash-agent-0.40.0.tgz
+    version: 0.40.0
+  - apiVersion: v2
+    appVersion: v0.18.2
     created: "2026-09-22T09:03:46.034014749Z"
     description: Udash Agent, is the Updatecli DASHboard agent running Updatecli to
       check your repositories updates.
@@ -863,4 +875,4 @@ entries:
     urls:
     - https://github.com/updatecli/charts/releases/download/udash-agent-0.1.0/udash-agent-0.1.0.tgz
     version: 0.1.0
-generated: "2026-09-23T05:29:00.280304953Z"
+generated: "2026-09-26T19:35:24.44442557Z"
