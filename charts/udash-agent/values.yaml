@@ -27,7 +27,7 @@ images:
     # -- Image pull policy for the AgentRelay image.
     pullPolicy: IfNotPresent
     # -- Overrides the image tag whose default is the chart appVersion.
-    tag: v0.19.1@sha256:45e2285583879ef356e8138b14776defb6e42c3242b9b4fdfa07eb286d1ec03b
+    tag: v0.20.0@sha256:e208c1b4e94ca6cd0951eafcc1e79b1a58444f9057b995369886164289c2f4c2
     # -- Command override for the AgentRelay container.
     command:
       - "udash"
