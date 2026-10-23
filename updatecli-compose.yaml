@@ -18,7 +18,7 @@ policies:
 
   - name: Update Helm Charts
     id: helm
-    policy: ghcr.io/updatecli/policies/autodiscovery/helm:0.9.1@sha256:b53ead17fa1cd26d1147c0f49d53b273b2cd7df234c514d531a6ab993e37a58b
+    policy: ghcr.io/updatecli/policies/autodiscovery/helm:0.10.0@sha256:c6b630e644bd996e9dd41f8e3baa3a0ec46b95fdb6476545d61d555050c52b42
 
   - name: Update GitHub Actions
     id: gha
