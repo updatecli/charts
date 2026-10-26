@@ -52,11 +52,20 @@ spec:
                 - name: "config"
                   mountPath: "/etc/updatecli/"
                   readonly: true
+                {{- if $.Values.persistence.enabled }}
+                - name: updatecli-tmp
+                  mountPath: /tmp/updatecli
+                {{- end }}
 
           volumes:
             - name: config
               configMap:
                 name: '{{ include "udash.configMapName" $ }}-agent-{{ $id }}'
+            {{- if $.Values.persistence.enabled }}
+            - name: updatecli-tmp
+              persistentVolumeClaim:
+                claimName: '{{ include "udash.fullname" $ }}-agent-{{ $id }}'
+            {{- end }}
           {{- with $.Values.nodeSelector }}
           nodeSelector:
             {{- toYaml . | nindent 8 }}
