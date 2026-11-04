@@ -123,6 +123,11 @@ helm uninstall udash-agent
 | images.agentrelay.tag | string | `"v0.14.0@sha256:a52edcb9535d8c392a2e592bf7c3b4fc0c14ecd4b1360aa96639145038b5da75"` | Overrides the image tag whose default is the chart appVersion. |
 | nameOverride | string | `""` | Override for the chart name used in resource names. |
 | nodeSelector | object | `{}` | Node selector for pod scheduling. |
+| persistence.accessModes | list | `["ReadWriteOnce"]` | Access modes for the PersistentVolumeClaim. |
+| persistence.annotations | object | `{}` | Annotations to add to the PersistentVolumeClaim. |
+| persistence.enabled | bool | `false` | Enable a PersistentVolumeClaim to persist the Updatecli tmp folder (`/tmp/updatecli`) across executions. One PVC is created per agent CronJob and per Argo workflow entry. |
+| persistence.size | string | `"1Gi"` | Size of the PersistentVolumeClaim. |
+| persistence.storageClassName | string | `""` | Storage class name for the PersistentVolumeClaim. Leave empty to use the cluster default. |
 | podAnnotations | object | `{}` | Annotations to add to all pods. |
 | podSecurityContext | object | `{}` | Pod-level security context. |
 | resources | object | `{}` | Resource requests and limits for all containers. Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/ |

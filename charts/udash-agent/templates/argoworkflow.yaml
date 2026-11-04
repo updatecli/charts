@@ -15,16 +15,28 @@ spec:
       - name: updatecli-compose-file
         description: the updatecli compose file
         default: updatecli-compose.yaml
+      {{- if $.Values.persistence.enabled }}
+      - name: tmp-pvc-name
+        description: PersistentVolumeClaim name for the updatecli tmp folder
+      {{- end }}
   templates:
     - name: main
       volumes:
         - name: workspace
           emptyDir: {}
+        {{- if $.Values.persistence.enabled }}
+        - name: updatecli-tmp
+          persistentVolumeClaim:
+            claimName: "{{ "{{" }} inputs.parameters.tmp-pvc-name {{ "}}" }}"
+        {{- end }}
       inputs:
         parameters:
           - name: repo-url
           - name: repo-branch
           - name: updatecli-compose-file
+          {{- if $.Values.persistence.enabled }}
+          - name: tmp-pvc-name
+          {{- end }}
       containerSet:
         volumeMounts:
           - mountPath: /workspace
@@ -55,6 +67,11 @@ spec:
               # {{- end }}
             resources:
               {{- toYaml $.Values.resources | nindent 14 }}
+            {{- if $.Values.persistence.enabled }}
+            volumeMounts:
+              - mountPath: /tmp/updatecli
+                name: updatecli-tmp
+            {{- end }}
             args:
               - |
                 cd /workspace
@@ -123,4 +140,8 @@ spec:
           value: "{{ $workflow.branch }}"
         - name: updatecli-compose-file
           value: "{{ $workflow.composefile }}"
+        {{- if $.Values.persistence.enabled }}
+        - name: tmp-pvc-name
+          value: "{{ include "udash.fullname" $ }}-workflow-{{ $id }}"
+        {{- end }}
 #{{ end }}
